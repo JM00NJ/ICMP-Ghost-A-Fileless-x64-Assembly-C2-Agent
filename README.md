@@ -51,6 +51,19 @@ nasm -f elf64 sniff.asm -o sniff.o && ld sniff.o -o sniff && nasm -f elf64 clien
 
 3-Type your commands and watch the "ghost" reply.
 
+🗺️ Roadmap / Future Enhancements
+This project is under active development. Future releases will focus on advanced evasion techniques and enhanced stability:
+
+[ ] Dynamic Process Masquerading: Renaming the process at runtime (e.g., to [kworker] or systemd) to blend in with system threads.
+
+[ ] Payload Encryption: Implementing XOR or AES encryption for ICMP data to bypass Deep Packet Inspection (DPI).
+
+[ ] Anti-Debugging & Anti-VM: Adding ptrace checks and environmental artifacts detection to hinder forensic analysis.
+
+[ ] Interactive TTY: Improving shell interaction to support full TTY features and stderr redirection.
+
+[ ] Persistence Mechanisms: Adding pure assembly-based persistence methods for various Linux distributions.
+
 # ⚠️ Legal Disclaimer
 # This project is created for educational purposes and security research only. Unauthorized access to computer systems is illegal. The author is not responsible for any misuse of this tool.
 
