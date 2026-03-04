@@ -1,7 +1,7 @@
-## 🚀 ICMP-Ghost: A Fileless x64 Assembly C2 Agent
+# 🚀 ICMP-Ghost: A Fileless x64 Assembly C2 Agent
 ICMP-Ghost is a minimalist, stealthy Command & Control (C2) agent written entirely in x64 Assembly for Linux. It utilizes the ICMP protocol (Ping) for communication, bypassing traditional TCP/UDP-based detection.
 
-## 📺 Demo
+# 📺 Demo
 Here is the agent in action, showcasing its daemonization and remote command execution:
 ![ICMP Ghost Demo](ghost_demo1.gif)
 ![ICMP Ghost Demo](ghost_demo.gif)
