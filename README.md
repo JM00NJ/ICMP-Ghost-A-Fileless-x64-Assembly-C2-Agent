@@ -102,7 +102,7 @@ This project is under active development. Future releases will focus on advanced
 
 [ ] Dynamic Process Masquerading: Renaming the process at runtime (e.g., to [kworker] or systemd) to blend in.
 
-[ ] Payload Encryption: Implementing XOR or AES encryption for ICMP data to bypass Deep Packet Inspection (DPI).
+[DONE] Payload Encryption: Implementing XOR or AES encryption for ICMP data to bypass Deep Packet Inspection (DPI).
 
 [ ] Anti-Debugging & Anti-VM: Adding ptrace checks and environmental artifact detection.
 
