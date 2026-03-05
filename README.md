@@ -7,6 +7,9 @@
 
 **ICMP-Ghost** is a minimalist, stealthy Command & Control (C2) agent written entirely in **x64 Assembly** for Linux. It utilizes the ICMP protocol (Ping) for communication, bypassing traditional TCP/UDP-based detection by operating at the raw socket level.
 
+## Star vs. Clone
+I see you're interested in the code! If you're one of the many people cloning this repo, consider dropping a Star as well. It helps the project stay visible and reach more low-level enthusiasts
+
 ---
 ### 🔍 IP Configuration (Little-Endian Conversion)
 
