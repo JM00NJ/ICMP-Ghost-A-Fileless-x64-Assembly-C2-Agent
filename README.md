@@ -17,6 +17,13 @@ target_addr:
     dw 0              ; Port
     dd 0x1901A8C0     ; <--- CHANGE THIS HEX (e.g., 192.168.1.25)
 ```
+Quick Conversion via Terminal (Python):
+If you have Python installed, run this command to get your reversed hex IP immediately:
+
+```python
+python3 -c "import socket, struct; print(hex(struct.unpack('<I', socket.inet_aton('192.168.1.25'))[0]))"
+```
+Replace 192.168.1.25 with your target IP.
 
 
 ## 📺 Demo
