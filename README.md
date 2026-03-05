@@ -86,7 +86,7 @@ This project is under active development. Future releases will focus on advanced
 ## 📖 Deep Dive & Technical Analysis
 
 For a detailed breakdown of the Assembly code, syscall mechanics, and the "Fileless" approach, check out the technical analysis on my blog:
-## 👉 NetaCoding - https://netacoding.blogspot.com/
+## 👉 NetaCoding - https://netacoding.blogspot.com/2026/03/icmp-ghostc2-fileless.html
 ## 🤝 Connect with Me
 GitHub: https://github.com/JM00NJ
 Blog: https://netacoding.blogspot.com/
