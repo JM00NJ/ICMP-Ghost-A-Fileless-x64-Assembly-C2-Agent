@@ -110,6 +110,12 @@ This project is under active development. Future releases will focus on advanced
 
 [ ] Persistence Mechanisms: Adding pure assembly-based persistence methods for various Linux distros.
 
+[ ] Stealth Triggering (Port Knocking): Implementing a sequential packet size/count handshake to wake the agent from deep sleep. This ensures the agent remains completely silent until the "master" knocks.
+
+[ ] Data Fragmentation (Chunking): Splitting large command outputs into multiple 1024-byte ICMP packets to bypass MTU (1500) limits and ensure reliable data exfiltration across real-world networks.
+
+[ ] Multi-Target Management: Enhancing the client to track and manage multiple infected hosts simultaneously using their source IP as a unique identifier.
+
 ## 📖 Deep Dive & Technical Analysis
 
 For a detailed breakdown of the Assembly code, syscall mechanics, and the "Fileless" approach, check out the technical analysis on my blog:
