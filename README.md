@@ -8,6 +8,16 @@
 **ICMP-Ghost** is a minimalist, stealthy Command & Control (C2) agent written entirely in **x64 Assembly** for Linux. It utilizes the ICMP protocol (Ping) for communication, bypassing traditional TCP/UDP-based detection by operating at the raw socket level.
 
 ---
+## Configuration
+How to Change the Target IP:
+Open client.asm and go to the beginning of the .data section (around line 15-20). You will see the target_addr structure:
+```nasm
+target_addr:
+    dw 2              ; AF_INET
+    dw 0              ; Port
+    dd 0x1901A8C0     ; <--- CHANGE THIS HEX (e.g., 192.168.1.25)
+```
+
 
 ## 📺 Demo
 Here is the agent in action, showcasing its stealthy daemonization and remote command execution:
