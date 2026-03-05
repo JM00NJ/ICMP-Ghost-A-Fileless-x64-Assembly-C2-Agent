@@ -8,22 +8,29 @@
 **ICMP-Ghost** is a minimalist, stealthy Command & Control (C2) agent written entirely in **x64 Assembly** for Linux. It utilizes the ICMP protocol (Ping) for communication, bypassing traditional TCP/UDP-based detection by operating at the raw socket level.
 
 ---
-## Configuration
-How to Change the Target IP:
-Open client.asm and go to the beginning of the .data section (around line 15-20). You will see the target_addr structure:
+### 🔍 IP Configuration (Little-Endian Conversion)
+
+Since x86-64 architecture uses **Little-endian** byte ordering, you must provide the Target IP address in **reversed hex order** in `client.asm`.
+
 ```nasm
 target_addr:
     dw 2              ; AF_INET
     dw 0              ; Port
     dd 0x1901A8C0     ; <--- CHANGE THIS HEX (e.g., 192.168.1.25)
 ```
-Quick Conversion via Terminal (Python):
-If you have Python installed, run this command to get your reversed hex IP immediately:
 
-```python
-python3 -c "import socket, struct; print(hex(struct.unpack('<I', socket.inet_aton('192.168.1.25'))[0]))"
+| Target IP | Octets in Hex | Normal Hex (Big-Endian) | **Reversed Hex (Little-Endian)** |
+| :--- | :--- | :--- | :--- |
+| **192.168.1.25** | `C0` `A8` `01` `19` | `0xC0A80119` | **`0x1901A8C0`** |
+| **10.0.0.5** | `0A` `00` `00` `05` | `0x0A000005` | **`0x0500000A`** |
+| **172.16.0.100** | `AC` `10` `00` `64` | `0xAC100064` | **`0x640010AC`** |
+
+#### 🚀 Quick Conversion via Python
+You can use this one-liner to get the correct hex value for any IP immediately:
+```bash
+python3 -c "import socket, struct; print(hex(struct.unpack('<I', socket.inet_aton('YOUR_IP_HERE'))[0]))"
 ```
-Replace 192.168.1.25 with your target IP.
+
 
 
 ## 📺 Demo
