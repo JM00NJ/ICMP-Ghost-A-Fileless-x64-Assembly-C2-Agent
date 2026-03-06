@@ -21,7 +21,7 @@ In real-world Red Team operations involving Linux infrastructure, the targets ar
 * **No Active Beaconing:** The agent never initiates outbound traffic, keeping it invisible to outbound firewall rules.
 * **Public IP to Public IP:** Designed for Server-to-Server communication. The attacker utilizes a remote redirector (VPS) to send the "Magic Sequence" (Trigger) directly to the infected server's public IP.
 * **Stateless Evasion:** Bypasses stateful firewall tracking issues common in traditional reverse shells by operating purely on raw, stateless ICMP sockets.
-For now / *Note: In heavily monitored enterprise environments (e.g., Zero Trust architectures with strict ICMP payload inspections or active SOC monitoring), the static nature of the initial magic sequence may be flagged as a protocol anomaly. **However, upcoming major releases (v3.0+) are actively addressing this by introducing polymorphic signaling, stealth port-knocking rituals, and payload chunking to defeat DPI and behavioral heuristics.***
+*For now Note: In heavily monitored enterprise environments (e.g., Zero Trust architectures with strict ICMP payload inspections or active SOC monitoring), the static nature of the initial magic sequence may be flagged as a protocol anomaly. **However, upcoming major releases (v3.0+) are actively addressing this by introducing polymorphic signaling, stealth port-knocking rituals, and payload chunking to defeat DPI and behavioral heuristics.***
 
 ## 🎯 Target Environments & Operational Viability
 
