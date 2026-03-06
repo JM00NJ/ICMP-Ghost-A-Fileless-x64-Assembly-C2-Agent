@@ -11,6 +11,29 @@
 I see you're interested in the code! If you're one of the many people cloning this repo, consider dropping a Star as well. It helps the project stay visible and reach more low-level enthusiasts
 
 ---
+
+## 🏗️ Architecture Overview: Trigger-Based Server Implant
+
+ICMP-Ghost is explicitly designed as a **Server-Side Triggered Implant**, moving away from traditional reverse-beaconing methodologies that target NAT-restricted end-user devices. 
+
+In real-world Red Team operations involving Linux infrastructure, the targets are typically cloud instances (AWS, DigitalOcean, Linode) or DMZ servers with public IPs. ICMP-Ghost leverages this topology by acting as a passive, bind-like listener on the compromised server. 
+
+* **No Active Beaconing:** The agent never initiates outbound traffic, keeping it invisible to outbound firewall rules.
+* **Public IP to Public IP:** Designed for Server-to-Server communication. The attacker utilizes a remote redirector (VPS) to send the "Magic Sequence" (Trigger) directly to the infected server's public IP.
+* **Stateless Evasion:** Bypasses stateful firewall tracking issues common in traditional reverse shells by operating purely on raw, stateless ICMP sockets.
+For now / *Note: In heavily monitored enterprise environments (e.g., Zero Trust architectures with strict ICMP payload inspections or active SOC monitoring), the static nature of the initial magic sequence may be flagged as a protocol anomaly. **However, upcoming major releases (v3.0+) are actively addressing this by introducing polymorphic signaling, stealth port-knocking rituals, and payload chunking to defeat DPI and behavioral heuristics.***
+
+## 🎯 Target Environments & Operational Viability
+
+This C2 framework is highly effective against standard Linux web servers, standalone cloud VMs, and SMB infrastructure where deep packet inspection (DPI) or enterprise-grade IDS/IPS is not actively deployed. 
+
+**Ideal Deployment Scenarios:**
+* Web servers running e-commerce platforms or CMS (WordPress, Magento, etc.) with standard `iptables`/`ufw` configurations.
+* Cloud droplets where ICMP Echo is permitted for monitoring purposes.
+* Environments lacking kernel-level behavioral monitoring (EDR).
+
+*Note: In heavily monitored enterprise environments (e.g., Zero Trust architectures with strict ICMP payload inspections or active SOC monitoring), the static nature of the initial magic sequence may be flagged as a protocol anomaly.*
+
 ### 🔍 IP Configuration (Little-Endian Conversion)
 
 Since x86-64 architecture uses **Little-endian** byte ordering, you must provide the Target IP address in **reversed hex order** in `client.asm`.
