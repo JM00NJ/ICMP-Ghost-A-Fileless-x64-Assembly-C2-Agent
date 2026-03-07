@@ -12,16 +12,30 @@ I see you're interested in the code! If you're one of the many people cloning th
 
 ---
 
-## 🏗️ Architecture Overview: Trigger-Based Server Implant
+## 🏗️ Architecture Overview: Passive Trigger-Based Implant (v2.1.0)
+Ghost-C2 is a fileless, x64 assembly-based server-side implant that leverages raw ICMP sockets for stealthy command and control. Unlike traditional reverse-beacons, Ghost-C2 remains entirely passive, acting as a stateless listener that only responds to a specific Magic Sequence.
 
-ICMP-Ghost is explicitly designed as a **Server-Side Triggered Implant**, moving away from traditional reverse-beaconing methodologies that target NAT-restricted end-user devices. 
+🛡️ Current Stealth Capabilities (v2.1.0)
+Stateless Evasion: Operating purely on raw ICMP sockets bypasses stateful firewall tracking common in TCP/UDP connections.
 
-In real-world Red Team operations involving Linux infrastructure, the targets are typically cloud instances (AWS, DigitalOcean, Linode) or DMZ servers with public IPs. ICMP-Ghost leverages this topology by acting as a passive, bind-like listener on the compromised server. 
+MTU-Aware Payload Chunking: Data is automatically fragmented into 1024-byte chunks, preventing protocol anomalies and ensuring reliability across diverse network MTUs.
 
-* **No Active Beaconing:** The agent never initiates outbound traffic, keeping it invisible to outbound firewall rules.
-* **Public IP to Public IP:** Designed for Server-to-Server communication. The attacker utilizes a remote redirector (VPS) to send the "Magic Sequence" (Trigger) directly to the infected server's public IP.
-* **Stateless Evasion:** Bypasses stateful firewall tracking issues common in traditional reverse shells by operating purely on raw, stateless ICMP sockets.
-*For now Note: In heavily monitored enterprise environments (e.g., Zero Trust architectures with strict ICMP payload inspections or active SOC monitoring), the static nature of the initial magic sequence may be flagged as a protocol anomaly. **However, upcoming major releases (v3.0+) are actively addressing this by introducing polymorphic signaling, stealth port-knocking rituals, and payload chunking to defeat DPI and behavioral heuristics.***
+Stream Obfuscation: All exfiltrated data is obfuscated using an in-place XOR cipher, breaking static string-based signatures.
+
+Full I/O Redirection: Captures both STDOUT and STDERR, ensuring visibility even during command failures.
+
+EOS (End-of-Stream) Signaling: Prevents protocol hangs by dispatching specialized termination packets for boundary-aligned data streams.
+
+## 🗺️ Future Roadmap: The "Stealth" Update (v3.0+)
+The upcoming major release (v3.0) is focused on defeating Deep Packet Inspection (DPI) and advanced SOC/IDS behavioral heuristics through sophisticated evasion techniques:
+
+Protocol Mimicry (Padding): Encapsulating encrypted payloads within standard Linux ping data patterns (timestamp + sequence padding) to mimic legitimate diagnostic traffic.
+
+Polymorphic Obfuscation: Transitioning from static XOR keys to dynamic, per-packet rolling keys derived from the ICMP Sequence Number, effectively breaking static entropy-based signatures.
+
+Traffic Shaping (Jitter): Implementing randomized transmission intervals (100-300ms jitter) to disrupt periodic beaconing detection and simulate human-like network activity.
+
+IP-Layer Fragmentation: Shifting from application-layer chunking to native IP-level fragmentation to blind legacy IDS/IPS systems and evade payload-length heuristics.
 
 ## 🎯 Target Environments & Operational Viability
 
