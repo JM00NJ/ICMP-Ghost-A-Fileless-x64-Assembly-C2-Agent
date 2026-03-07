@@ -12,6 +12,13 @@ I see you're interested in the code! If you're one of the many people cloning th
 
 ---
 
+⚠️ Known Issues & Current Limitations
+Asymmetric Encryption Disparity: In the current version (v2.1.0), only the ICMP Echo Reply (Agent-to-Client response) is fully XOR-obfuscated. The ICMP Echo Request (Client-to-Agent command) currently transmits in plain-text.
+
+Impact: Advanced Deep Packet Inspection (DPI) or IDS systems may flag common shell command strings (e.g., whoami, ls) within the initial trigger packet.
+
+Mitigation: This is a known technical debt and is scheduled to be resolved in the upcoming v2.2.0 patch by implementing request-side XOR encryption and agent-side decryption.
+
 ## 🏗️ Architecture Overview: Passive Trigger-Based Implant (v2.1.0)
 Ghost-C2 is a fileless, x64 assembly-based server-side implant that leverages raw ICMP sockets for stealthy command and control. Unlike traditional reverse-beacons, Ghost-C2 remains entirely passive, acting as a stateless listener that only responds to a specific Magic Sequence.
 
