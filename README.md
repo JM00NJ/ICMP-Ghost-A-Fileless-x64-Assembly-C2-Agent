@@ -34,30 +34,6 @@ This C2 framework is highly effective against standard Linux web servers, standa
 
 *Note: In heavily monitored enterprise environments (e.g., Zero Trust architectures with strict ICMP payload inspections or active SOC monitoring), the static nature of the initial magic sequence may be flagged as a protocol anomaly.*
 
-### 🔍 IP Configuration (Little-Endian Conversion)
-
-Since x86-64 architecture uses **Little-endian** byte ordering, you must provide the Target IP address in **reversed hex order** in `client.asm`.
-
-```nasm
-target_addr:
-    dw 2              ; AF_INET
-    dw 0              ; Port
-    dd 0x1901A8C0     ; <--- CHANGE THIS HEX (e.g., 192.168.1.25)
-```
-
-| Target IP | Octets in Hex | Normal Hex (Big-Endian) | **Reversed Hex (Little-Endian)** |
-| :--- | :--- | :--- | :--- |
-| **192.168.1.25** | `C0` `A8` `01` `19` | `0xC0A80119` | **`0x1901A8C0`** |
-| **10.0.0.5** | `0A` `00` `00` `05` | `0x0A000005` | **`0x0500000A`** |
-| **172.16.0.100** | `AC` `10` `00` `64` | `0xAC100064` | **`0x640010AC`** |
-
-#### 🚀 Quick Conversion via Python
-You can use this one-liner to get the correct hex value for any IP immediately:
-```bash
-python3 -c "import socket, struct; print(hex(struct.unpack('<I', socket.inet_aton('YOUR_IP_HERE'))[0]))"
-```
-
-
 
 ## 📺 Demo
 Here is the agent in action, showcasing its stealthy daemonization and remote command execution:
@@ -135,7 +111,7 @@ This project is under active development. Future releases will focus on advanced
 
 [ ] Stealth Triggering (Port Knocking): Implementing a sequential packet size/count handshake to wake the agent from deep sleep. This ensures the agent remains completely silent until the "master" knocks.
 
-[ ] Data Fragmentation (Chunking): Splitting large command outputs into multiple 1024-byte ICMP packets to bypass MTU (1500) limits and ensure reliable data exfiltration across real-world networks.
+[DONE] Data Fragmentation (Chunking): Splitting large command outputs into multiple 1024-byte ICMP packets to bypass MTU (1500) limits and ensure reliable data exfiltration across real-world networks.
 
 [ ] Multi-Target Management: Enhancing the client to track and manage multiple infected hosts simultaneously using their source IP as a unique identifier.
 
