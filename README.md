@@ -13,10 +13,7 @@ I see you're interested in the code! If you're one of the many people cloning th
 ---
 
 
-## 🏗️ Architecture Overview: Passive Trigger-Based Implant (v2.1.0)
-Ghost-C2 is a fileless, x64 assembly-based server-side implant that leverages raw ICMP sockets for stealthy command and control. Unlike traditional reverse-beacons, Ghost-C2 remains entirely passive, acting as a stateless listener that only responds to a specific Magic Sequence.
-
-🚀 The "Stealth" Update (v3.0.0) - What's New?
+ ## 🚀 The "Stealth" Update (v3.0.0) - What's New?
 With the latest release, Ghost-C2 has reached a new level of operational security, effectively defeating Deep Packet Inspection (DPI) and behavioral heuristics:
 
 [DONE] Protocol Mimicry (Padding): Encapsulates encrypted payloads within standard Linux ping data patterns. It mimics legitimate diagnostic traffic by including a dynamic timestamp (RDTSC) and a 24-byte sequence padding (0x10-0x1F).
