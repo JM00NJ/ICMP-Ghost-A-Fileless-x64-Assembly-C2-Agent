@@ -24,7 +24,7 @@ With the latest release, Ghost-C2 has reached a new level of operational securit
 
 [DONE] Bi-directional Stream Obfuscation: The "Asymmetric Encryption Disparity" has been resolved. Both ICMP Echo Request (Client-to-Agent) and Echo Reply (Agent-to-Client) are now fully XOR-obfuscated.
 
-[DONE] Data Fragmentation (Chunking): Automatically splits large command outputs into 1000-byte ICMP packets to bypass MTU limits and ensure reliable exfiltration.
+[DONE] Data Fragmentation (Chunking): Automatically splits large command outputs into 56-byte ICMP packets to bypass MTU limits and ensure reliable exfiltration.
 
 ## 🎯 Target Environments & Operational Viability (v3.0)
 Ghost-C2 v3.0 is optimized for high-stealth operations in environments protected by active Deep Packet Inspection (DPI) and behavioral monitoring. By mimicking standard Linux ping signatures and disrupting beaconing patterns, it effectively bypasses most automated IDS/IPS signature filters.
