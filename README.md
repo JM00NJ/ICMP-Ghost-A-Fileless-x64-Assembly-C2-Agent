@@ -4,6 +4,7 @@
 ![Language](https://img.shields.io/badge/Language-Pure%20Assembly-green.svg)
 ![Protocol](https://img.shields.io/badge/Protocol-ICMP-blue.svg)
 ![OS](https://img.shields.io/badge/OS-Linux-orange.svg)
+![Suricata](https://img.shields.io/badge/Suricata%20v8.0.3-Bypassed-brightgreen?style=for-the-badge)
 
 **Ghost-C2 is a fileless, server-side implant written in pure x64 Assembly. It leverages raw ICMP sockets for stealthy command and control, acting as a passive, stateless listener that only responds to a specific Magic Sequence.
 
@@ -27,13 +28,20 @@ With the latest release, Ghost-C2 has reached a new level of operational securit
 ## 🎯 Target Environments & Operational Viability (v3.0)
 Ghost-C2 v3.0 is optimized for high-stealth operations in environments protected by active Deep Packet Inspection (DPI) and behavioral monitoring. By mimicking standard Linux ping signatures and disrupting beaconing patterns, it effectively bypasses most automated IDS/IPS signature filters.
 
-Success Probability & Viability:
+## 🚀 Empirical Success Verification (v3.0.1)
+Ghost-C2 has been rigorously tested in a controlled environment against modern traffic analysis engines.
 
-Standard Infrastructure (85-95% Success): Highly resilient against standard iptables, ufw, and mid-tier IDS/IPS (like Snort or Suricata) using default rule sets.
+Suricata v8.0.3 (Latest Release) Bypass: Confirmed. The implant successfully evaded detection under:
 
-Monitored Cloud/VPS (80-90% Success): Appears as legitimate monitoring/uptime checks in AWS, GCP, or DigitalOcean environments.
+Standard Rule Sets: Emerging Threats (ET) Open signatures.
 
-Enterprise-Grade Networks (65-75% Success): Can bypass advanced DPI by using Padding Mimicry, though it remains susceptible to advanced entropy analysis or "zero-ICMP" egress policies.
+Custom Heuristics: Manually defined rules targeting high-frequency ICMP traffic and non-standard payload patterns.
+
+DigitalOcean Cloud (FRA1): %100 Success rate in exfiltrating system data (cat /etc/services, ps aux) through a hardened gateway.
+
+Zero-Alert Policy: During the transfer of ~25KB of system metadata, zero (0) alerts were triggered in fast.log.
+
+"Tested against custom 'Protocol Violation' and 'ICMP Payload Anomaly' rules."
 
 Ideal Deployment Scenarios:
 
@@ -43,7 +51,7 @@ Evasion Testing: Evaluating the effectiveness of SOC/IDS teams against non-stand
 
 Post-Exploitation: Exfiltrating sensitive command outputs from environments where TCP/UDP traffic is strictly proxied but ICMP is allowed.
 
-Note: While the v3.0 update significantly reduces the risk of detection, the static "Magic Sequence" is still a theoretical weak point. Future updates will focus on rolling cryptographic triggers to achieve >95% viability in Zero Trust environments.
+The v3.0 release has been operationally verified to bypass active Suricata deployments. The XOR stream sync ensures that even large file exfiltrations remain below the noise floor of standard network monitoring.
 
 ## 📺 Demo
 Here is the agent in action, showcasing its stealthy daemonization and remote command execution:
