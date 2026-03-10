@@ -73,7 +73,8 @@ Fileless Execution: Uses sys_memfd_create to capture command output in RAM, ensu
 
 Full I/O Redirection: Captures both STDOUT and STDERR, ensuring full visibility even during command failures.
 
-Magic Trigger: The agent remains completely silent until it receives an ICMP packet with the correct Magic Sequence (0xDEAD).
+Asymmetric Signature-less Trigger: The C2 architecture eliminates all static signatures. It employs a polymorphic authentication mechanism where the agent validates commands based on an asymmetric mathematical sum. By emulating standard Linux/Windows ping patterns (High-entropy IDs and PID-range sequences), it makes C2 traffic indistinguishable from normal ICMP activity, rendering static YARA and Suricata rules ineffective.
+   INFO:    Asymmetric Key Exchange: Master sends commands with $Key = 45000$, and Agent replies with $Key = 55000$ to prevent local network echo interference and OS auto-reply confusion.
 
 ---
 
