@@ -10,7 +10,7 @@ section .data
     ; --- JITTER / TIMING PARAMETERS ---
     delay_req:
         dq 0                ; Seconds (tv_sec)
-        dq 200000000        ; Nano seconds (tv_nsec) - Base 200ms
+        dq 600000000        ; Nano seconds (tv_nsec) - Base 600ms / set to 600 ms or 900 ms at least
     delay_rem:
         dq 0                ; Remaining time if interrupted
         dq 0
