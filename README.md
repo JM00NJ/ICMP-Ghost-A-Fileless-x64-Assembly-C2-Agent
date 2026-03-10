@@ -26,6 +26,8 @@ With the latest release, Ghost-C2 has reached a new level of operational securit
 
 [DONE] Data Fragmentation (Chunking): Automatically splits large command outputs into 56-byte ICMP packets to bypass MTU limits and ensure reliable exfiltration.
 
+[DONE] Polymorphic Obfuscation: Transitioning from static XOR keys to dynamic, per-packet rolling keys.
+
 ## 🎯 Target Environments & Operational Viability (v3.0)
 Ghost-C2 v3.0 is optimized for high-stealth operations in environments protected by active Deep Packet Inspection (DPI) and behavioral monitoring. By mimicking standard Linux ping signatures and disrupting beaconing patterns, it effectively bypasses most automated IDS/IPS signature filters.
 
@@ -95,7 +97,6 @@ Asymmetric Signature-less Trigger: The C2 architecture eliminates all static sig
 
 [ ] Interactive TTY: Improving shell interaction to support full TTY features.
 
-[ ] Polymorphic Obfuscation: Transitioning from static XOR keys to dynamic, per-packet rolling keys.
 
 ## 🛡️ Technical Deep Dive: Evasion & Implementation (v3.0.0)
 Ghost-C2 is designed to bypass modern Deep Packet Inspection (DPI) and Endpoint Detection and Response (EDR) systems by utilizing low-level x64 Assembly and advanced network protocol manipulation.
