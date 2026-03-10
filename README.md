@@ -1,10 +1,11 @@
 # 👻 Ghost-C2: Fileless x64 Assembly ICMP C2 (v3.0.0)
 
+![Suricata](https://img.shields.io/badge/Suricata%20v8.0.3-Bypassed-brightgreen?style=for-the-badge)
+
 ![Architecture](https://img.shields.io/badge/Architecture-x86__64-red.svg)
 ![Language](https://img.shields.io/badge/Language-Pure%20Assembly-green.svg)
 ![Protocol](https://img.shields.io/badge/Protocol-ICMP-blue.svg)
 ![OS](https://img.shields.io/badge/OS-Linux-orange.svg)
-![Suricata](https://img.shields.io/badge/Suricata%20v8.0.3-Bypassed-brightgreen?style=for-the-badge)
 
 **Ghost-C2 is a fileless, server-side implant written in pure x64 Assembly. It leverages raw ICMP sockets for stealthy command and control, acting as a passive, stateless listener that only responds to a specific Magic Sequence.
 
