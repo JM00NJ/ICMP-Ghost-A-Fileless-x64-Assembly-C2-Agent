@@ -24,7 +24,7 @@ With the latest release, Ghost-C2 has reached a new level of operational securit
 
 [DONE] Bi-directional Stream Obfuscation: The "Asymmetric Encryption Disparity" has been resolved. Both ICMP Echo Request (Client-to-Agent) and Echo Reply (Agent-to-Client) are now fully XOR-obfuscated.
 
-[DONE] Data Fragmentation (Chunking): Automatically splits large command outputs into 56-byte ICMP packets to bypass MTU limits and ensure reliable exfiltration.
+[DONE] Data Fragmentation (Chunking): Automatically fragments large command outputs into small chunks, ensuring the total ICMP packet stays within standard diagnostic boundaries (64-byte or 88-byte profiles) to bypass MTU limits and avoid anomaly detection.
 
 [DONE] Polymorphic Obfuscation: Transitioning from static XOR keys to dynamic, per-packet rolling keys.
 
