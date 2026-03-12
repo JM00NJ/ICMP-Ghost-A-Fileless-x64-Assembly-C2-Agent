@@ -28,6 +28,8 @@ With the latest release, Ghost-C2 has reached a new level of operational securit
 
 [DONE] Polymorphic Obfuscation: Transitioning from static XOR keys to dynamic, per-packet rolling keys.
 
+[DONE] Dynamic Process Masquerading: Renaming the process at runtime (e.g., to [kworker] or systemd).
+
 ## 🎯 Target Environments & Operational Viability (v3.0)
 Ghost-C2 v3.0 is optimized for high-stealth operations in environments protected by active Deep Packet Inspection (DPI) and behavioral monitoring. By mimicking standard Linux ping signatures and disrupting beaconing patterns, it effectively bypasses most automated IDS/IPS signature filters.
 
@@ -91,7 +93,6 @@ Asymmetric Signature-less Trigger: The C2 architecture eliminates all static sig
 ---
 
 ## 🗺 Roadmap & Future Enhancements
-[ ] Dynamic Process Masquerading: Renaming the process at runtime (e.g., to [kworker] or systemd).
 
 [ ] Anti-Debugging & Anti-VM: Adding ptrace checks and environmental artifact detection.
 
