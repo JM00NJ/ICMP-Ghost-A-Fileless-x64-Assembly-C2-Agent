@@ -58,15 +58,6 @@ Post-Exploitation: Exfiltrating sensitive command outputs from environments wher
 
 The v3.0 release has been operationally verified to bypass active Suricata deployments. The XOR stream sync ensures that even large file exfiltrations remain below the noise floor of standard network monitoring.
 
-## 📺 Demo
-Here is the agent in action, showcasing its stealthy daemonization and remote command execution:
-
-<p align="center">
-  <img src="ghost_demo.gif" alt="ICMP Ghost Demo" width="800">
-  <br><br>
-  <img src="ghost_demo1.gif" alt="ICMP Ghost Demo Alternate" width="800">
-</p>
-
 ---
 ## 💻 Low-Level Implementation (Syscall Inventory)
 This implant operates without any external libraries (libc-free), interacting directly with the Linux Kernel via:
