@@ -143,6 +143,8 @@ The agent performs a deep memory sweep after the overwrite process. By manually 
 To assemble and link both the server and the client in one go:
 
 ```bash
+# Assemble and Link the Agent
+# Note: Using 'systemd-resolved' as the binary name for initial masquerading
 nasm -f elf64 sniff.asm -o sniff.o && ld sniff.o -o systemd-resolved
 ```
 ```bash
