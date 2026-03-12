@@ -28,6 +28,8 @@ With the latest release, Ghost-C2 has reached a new level of operational securit
 
 [DONE] Dynamic Process Masquerading: Renaming the process at runtime (e.g., to [kworker] or systemd).
 
+[DONE] Anti-Debugging & Anti-VM: Adding ptrace checks and environmental artifact detection. 
+
 ## 🎯 Target Environments & Operational Viability (v3.0)
 Ghost-C2 v3.0 is optimized for high-stealth operations in environments protected by active Deep Packet Inspection (DPI) and behavioral monitoring. By mimicking standard Linux ping signatures and disrupting beaconing patterns, it effectively bypasses most automated IDS/IPS signature filters.
 
@@ -83,8 +85,6 @@ Asymmetric Signature-less Trigger: The C2 architecture eliminates all static sig
 
 ## 🗺 Roadmap & Future Enhancements
 
-[ ] Anti-Debugging & Anti-VM: Adding ptrace checks and environmental artifact detection.
-
 [ ] Interactive TTY: Improving shell interaction to support full TTY features.
 
 
@@ -116,12 +116,12 @@ Entropy Injection: By using rdtsc as a seed for the sys_nanosleep (syscall 35) d
 
 Timing: Jitter intervals vary between 100ms and 300ms, simulating the natural latency and jitter of real-world network conditions.
 
-4. Polymorphic Stream Obfuscation (The End of Static Signatures)
-Both directions of communication are protected by a rolling-key XOR cipher.
+4. Symmetric Rolling-Key Obfuscation
+Both directions of communication are protected by a Symmetric Rolling XOR Cipher.
 
-Breaking Statistical Analysis: By using a dynamic seed (based on RDTSC or packet sequence), the encryption key changes for every transmission. Even if an analyst captures multiple packets, they cannot find a static pattern.
+Intra-Packet Entropy: By using a shifting key (dl += 0x07) for every byte, it breaks static pattern matching and prevents simple XOR key discovery.
 
-Null-Byte Protection: The engine handles null-byte leakage by ensuring the cipher-text maintains high entropy, preventing the original key from being leaked through zeroed-out memory buffers.
+Signature Neutralization: Standard shell command signatures are obfuscated, ensuring the payload appears as high-entropy noise.
 
 ## 🚀 Getting Started
 
