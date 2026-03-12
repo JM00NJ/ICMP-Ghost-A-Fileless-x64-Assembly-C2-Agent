@@ -118,12 +118,12 @@ Entropy Injection: By using rdtsc as a seed for the sys_nanosleep (syscall 35) d
 
 Timing: Jitter intervals vary between 100ms and 300ms, simulating the natural latency and jitter of real-world network conditions.
 
-4. Symmetric Stream Obfuscation
-Both directions of communication are protected by a symmetric XOR-based cipher.
+4. Polymorphic Stream Obfuscation (The End of Static Signatures)
+Both directions of communication are protected by a rolling-key XOR cipher.
 
-Breaking Signatures: Simple shell commands like whoami or id are transformed into high-entropy byte streams, preventing IDS alerts triggered by plain-text command strings.
+Breaking Statistical Analysis: By using a dynamic seed (based on RDTSC or packet sequence), the encryption key changes for every transmission. Even if an analyst captures multiple packets, they cannot find a static pattern.
 
-Key Integrity: To prevent "null-byte leakage" (where XORing 0x00 reveals the key), the entire buffer is zeroed out before command reading, ensuring the null terminator remains a valid part of the cipher-text.
+Null-Byte Protection: The engine handles null-byte leakage by ensuring the cipher-text maintains high entropy, preventing the original key from being leaked through zeroed-out memory buffers.
 
 ## 🚀 Getting Started
 
