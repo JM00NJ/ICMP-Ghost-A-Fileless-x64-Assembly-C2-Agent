@@ -33,7 +33,7 @@ With the latest release, Ghost-C2 has reached a new level of operational securit
 ## 🎯 Target Environments & Operational Viability (v3.0)
 Ghost-C2 v3.0 is optimized for high-stealth operations in environments protected by active Deep Packet Inspection (DPI) and behavioral monitoring. By mimicking standard Linux ping signatures and disrupting beaconing patterns, it effectively bypasses most automated IDS/IPS signature filters.
 
-## 🚀 Empirical Success Verification (v3.0.1)
+## 🚀 Empirical Success Verification (v3.0.0)
 Ghost-C2 has been rigorously tested in a controlled environment against modern traffic analysis engines.
 
 Suricata v8.0.3 (Latest Release) Bypass: Confirmed. The implant successfully evaded detection under:
