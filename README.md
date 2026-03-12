@@ -26,7 +26,7 @@ With the latest release, Ghost-C2 has reached a new level of operational securit
 
 [DONE] Data Fragmentation (Chunking): Automatically fragments large command outputs into small chunks, ensuring the total ICMP packet stays within standard diagnostic boundaries (64-byte or 88-byte profiles) to bypass MTU limits and avoid anomaly detection.
 
-[DONE] Polymorphic Obfuscation: Transitioning from static XOR keys to dynamic, per-packet rolling keys.
+[DONE] Polymorphic Obfuscation: Ghost-C2 now utilizes dynamic, per-packet rolling XOR keys. This ensures that identical commands (e.g., whoami) produce entirely different ciphertexts in every packet, defeating frequency analysis and static signature matching.
 
 [DONE] Dynamic Process Masquerading: Renaming the process at runtime (e.g., to [kworker] or systemd).
 
