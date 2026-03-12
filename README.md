@@ -22,11 +22,9 @@ With the latest release, Ghost-C2 has reached a new level of operational securit
 
 [DONE] Traffic Shaping (Jitter): Implements randomized transmission intervals (100-300ms jitter) using rdtsc to disrupt periodic beaconing detection and simulate human-like network activity.
 
-[DONE] Bi-directional Stream Obfuscation: The "Asymmetric Encryption Disparity" has been resolved. Both ICMP Echo Request (Client-to-Agent) and Echo Reply (Agent-to-Client) are now fully XOR-obfuscated.
-
 [DONE] Data Fragmentation (Chunking): Automatically fragments large command outputs into small chunks, ensuring the total ICMP packet stays within standard diagnostic boundaries (64-byte or 88-byte profiles) to bypass MTU limits and avoid anomaly detection.
 
-[DONE] Polymorphic Obfuscation: Ghost-C2 now utilizes dynamic, per-packet rolling XOR keys. This ensures that identical commands (e.g., whoami) produce entirely different ciphertexts in every packet, defeating frequency analysis and static signature matching.
+[DONE] Bi-directional Stream Obfuscation (Rolling XOR): Both ICMP Echo Request and Reply streams are protected by a Symmetric Rolling XOR Cipher. Each byte within a single packet is encrypted with a progressively shifting key (dl += 0x07), ensuring that static byte-pattern signatures are broken. This ensures high payload entropy and prevents "Asymmetric Encryption Disparity," making the traffic appear as non-patterned noise to Deep Packet Inspection (DPI) engines.
 
 [DONE] Dynamic Process Masquerading: Renaming the process at runtime (e.g., to [kworker] or systemd).
 
