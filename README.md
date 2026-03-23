@@ -70,6 +70,8 @@ sys_dup2 (33) & sys_execve (59): For I/O redirection and shell execution.
 
 sys_nanosleep (35): For implementing randomized jitter.
 
+sys_ptrace (101) & sys_prctl(157) : For Anti-Debug & Anti-Dump - Masquerading
+
 ## 🛠 Architecture Overview
 Stateless Evasion: Operates purely on raw ICMP sockets, bypassing stateful firewall tracking common in TCP/UDP connections.
 
