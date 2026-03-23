@@ -9,7 +9,7 @@
 ;                                   \|_________|                                   
 ; ===================================================================================
 ; Project      : Ghost-C2 (v3.0.2) - "The Invisible ICMP Phantom"
-; Author       : JM00NJ (https://github.com/JM00NJ)
+; Author       : JM00NJ (https://github.com/JM00NJ) / https://netacoding.blogspot.com/
 ; Architecture : x86_64 Linux (Pure Assembly, Libc-free)
 ; -----------------------------------------------------------------------------------
 ; Features:
