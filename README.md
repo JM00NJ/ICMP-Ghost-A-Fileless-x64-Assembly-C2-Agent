@@ -97,6 +97,7 @@ Protocol Integrity (TCP-ification): ICMP is inherently a stateless, "fire-and-fo
 OPSEC & "Ambient Noise" Destruction: An interactive shell generates traffic for every keystroke and screen update. This would create an "ICMP Storm," drastically raising the packet frequency and immediately triggering NIDS (e.g., Suricata) anomaly rules for abnormal ICMP volume. Ghost-C2 relies on blending into low-frequency diagnostic noise.
 
 Behavioral Evasion (EDR): Allocating a PTY requires opening /dev/ptmx and executing specific ioctl syscalls. EDRs highly monitor these actions. Spawning an interactive shell without a legitimate parent daemon (like sshd) leaves massive behavioral artifacts in the kernel.
+
 Conclusion: Ghost-C2 is designed as a hyper-stealth, stateless command execution and exfiltration implant—not a remote desktop administration tool. Adding a TTY trades absolute invisibility for convenience, which violates the core philosophy of this project.
 
 
