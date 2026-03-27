@@ -87,7 +87,17 @@ Asymmetric Signature-less Trigger: The C2 architecture eliminates all static sig
 
 ## 🗺 Roadmap & Future Enhancements
 
-[ ] Interactive TTY: Improving shell interaction to support full TTY features.
+[CANCELLED] Interactive TTY: Improving shell interaction to support full TTY features. >
+
+🚫 Architectural Decision: Why No Interactive TTY?
+The absence of an Interactive TTY (Pseudo-Terminal) in Ghost-C2 is not a limitation; it is a deliberate engineering and OPSEC decision to preserve the implant's absolute stealth. Implementing a full TTY would critically compromise the architecture for three main reasons:
+
+Protocol Integrity (TCP-ification): ICMP is inherently a stateless, "fire-and-forget" protocol. A TTY requires a continuous, stateful, and strictly ordered data stream. Emulating TCP-like Sequence/ACK mechanisms over ICMP would bloat the pure Assembly footprint and destroy the lightweight nature of the tool.
+
+OPSEC & "Ambient Noise" Destruction: An interactive shell generates traffic for every keystroke and screen update. This would create an "ICMP Storm," drastically raising the packet frequency and immediately triggering NIDS (e.g., Suricata) anomaly rules for abnormal ICMP volume. Ghost-C2 relies on blending into low-frequency diagnostic noise.
+
+Behavioral Evasion (EDR): Allocating a PTY requires opening /dev/ptmx and executing specific ioctl syscalls. EDRs highly monitor these actions. Spawning an interactive shell without a legitimate parent daemon (like sshd) leaves massive behavioral artifacts in the kernel.
+Conclusion: Ghost-C2 is designed as a hyper-stealth, stateless command execution and exfiltration implant—not a remote desktop administration tool. Adding a TTY trades absolute invisibility for convenience, which violates the core philosophy of this project.
 
 
 ## 🛡️ Technical Deep Dive: Evasion & Implementation (v3.0.0)
