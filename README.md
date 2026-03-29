@@ -14,7 +14,6 @@ I see you're interested in the code! If you're one of the many people cloning th
 
 ---
 
-
  ## 🚀 The "Stealth" Update (v3.0.0) - What's New?
 With the latest release, Ghost-C2 has reached a new level of operational security, effectively defeating Deep Packet Inspection (DPI) and behavioral heuristics:
 
@@ -86,6 +85,19 @@ Asymmetric Signature-less Trigger: The C2 architecture eliminates all static sig
 ---
 
 ## 🗺 Roadmap & Future Enhancements
+
+## 🚀 Upcoming in v4.0: Project "Phantom Loader" (In-Memory Execution)
+
+The next major update will introduce a state-of-the-art **Reflective ELF Injector**, completely written in raw x64 Assembly. Ghost-C2 will transition from a standalone executable to a fileless, memory-only threat.
+
+**Technical Roadmap:**
+* [ ] **Dynamic Target Acquisition:** Automated parsing of the `/proc` directory via `getdents64` and `openat` syscalls to dynamically locate target processes (e.g., `systemd-networkd`) without relying on libc.
+* [ ] **Process Subversion (`ptrace`):** Attaching to the target process and halting execution via `PTRACE_ATTACH`.
+* [ ] **Remote Memory Allocation:** Forcing the target process to execute `sys_mmap` via a custom injected stub to allocate hidden `RX/RW` memory regions.
+* [ ] **Reflective ELF Mapping:** Parsing the ELF headers of the Ghost-C2 agent and manually mapping its `.text`, `.data`, and `.bss` segments directly into the target's memory space via `process_vm_writev`.
+* [ ] **Execution Hijacking:** Modifying the target's Instruction Pointer (`RIP`) to execute the C2 agent flawlessly within a legitimate system process context.
+
+**OpSec Advantage:** Zero disk footprint, complete bypass of `execve` based EDR telemetry, and no visible suspicious processes in the process tree.
 
 [CANCELLED] Interactive TTY: Improving shell interaction to support full TTY features. >
 
