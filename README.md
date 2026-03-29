@@ -150,6 +150,7 @@ Tip: For a perfectly clean process tree without environment variable "bleeding",
 Ghost-C2 doesn't just run; it hides in plain sight. Using a combination of sys_prctl and argv[0] stack manipulation, the agent transforms itself into a legitimate system service.
 Zero-Trace Memory Alignment:
 The agent performs a deep memory sweep after the overwrite process. By manually null-terminating the argv[0] buffer and clearing the subsequent memory blocks, it ensures that no fragments of the original binary name or environment variables remain visible in process monitoring tools like ps, top, or htop.
+
 💡 OPSEC Pro-Tip (Choosing the Right Mask): > 
 To maximize evasion against behavioral heuristics, do not use random process names. Masquerade the agent as a native network daemon (e.g., systemd-networkd, NetworkManager, or dhclient). Since these legitimate services naturally interact with network interfaces and often utilize SOCK_RAW, your implant's network activity will blend into the system's baseline noise, drastically reducing the chance of triggering anomaly-based EDR alerts.
 
