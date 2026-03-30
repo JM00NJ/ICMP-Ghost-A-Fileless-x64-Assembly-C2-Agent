@@ -98,6 +98,7 @@ The next major update will introduce a state-of-the-art **Reflective ELF Injecto
 * [ ] **Execution Hijacking:** Modifying the target's Instruction Pointer (`RIP`) to execute the C2 agent flawlessly within a legitimate system process context.
 
 **OpSec Advantage:** Zero disk footprint, complete bypass of `execve` based EDR telemetry, and no visible suspicious processes in the process tree.
+
 NOTE ON "Phantom Loader": It's gonna take some time :D its not that easy to do it LOL but will do it.
 
 [CANCELLED] Interactive TTY: Improving shell interaction to support full TTY features. >
