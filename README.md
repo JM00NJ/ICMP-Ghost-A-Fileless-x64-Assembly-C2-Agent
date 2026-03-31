@@ -86,7 +86,7 @@ Asymmetric Signature-less Trigger: The C2 architecture eliminates all static sig
 
 ## 🗺 Roadmap & Future Enhancements
 
-🚀 Upcoming in v4.x: Project "Phantom Loader" (Advanced In-Memory Evasion)
+## 🚀 Upcoming in v4.x: Project "Phantom Loader" (Advanced In-Memory Evasion)
 
 The next major evolution of Ghost-C2 transitions from standard execution to a highly evasive, fileless threat model. Modern Linux kernels (e.g., Ubuntu 25.x, Kernel 6.17+) employ ruthless mitigations like Memory-Deny-Write-Execute (MDWE), NX, and strict ASLR, making traditional shellcode injection obsolete.
 
