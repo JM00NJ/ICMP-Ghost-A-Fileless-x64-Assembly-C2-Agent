@@ -86,20 +86,25 @@ Asymmetric Signature-less Trigger: The C2 architecture eliminates all static sig
 
 ## 🗺 Roadmap & Future Enhancements
 
-## 🚀 Upcoming in v4.0: Project "Phantom Loader" (In-Memory Execution)
+🚀 Upcoming in v4.x: Project "Phantom Loader" (Advanced In-Memory Evasion)
 
-The next major update will introduce a state-of-the-art **Reflective ELF Injector**, completely written in raw x64 Assembly. Ghost-C2 will transition from a standalone executable to a fileless, memory-only threat.
+The next major evolution of Ghost-C2 transitions from standard execution to a highly evasive, fileless threat model. Modern Linux kernels (e.g., Ubuntu 25.x, Kernel 6.17+) employ ruthless mitigations like Memory-Deny-Write-Execute (MDWE), NX, and strict ASLR, making traditional shellcode injection obsolete.
 
-**Technical Roadmap:**
-* [ ] **Dynamic Target Acquisition:** Automated parsing of the `/proc` directory via `getdents64` and `openat` syscalls to dynamically locate target processes (e.g., `systemd-networkd`) without relying on libc.
-* [ ] **Process Subversion (`ptrace`):** Attaching to the target process and halting execution via `PTRACE_ATTACH`.
-* [ ] **Remote Memory Allocation:** Forcing the target process to execute `sys_mmap` via a custom injected stub to allocate hidden `RX/RW` memory regions.
-* [ ] **Reflective ELF Mapping:** Parsing the ELF headers of the Ghost-C2 agent and manually mapping its `.text`, `.data`, and `.bss` segments directly into the target's memory space via `process_vm_writev`.
-* [ ] **Execution Hijacking:** Modifying the target's Instruction Pointer (`RIP`) to execute the C2 agent flawlessly within a legitimate system process context.
+Ghost-C2 is adapting to bypass these modern armors.
 
-**OpSec Advantage:** Zero disk footprint, complete bypass of `execve` based EDR telemetry, and no visible suspicious processes in the process tree.
+Technical Roadmap & R&D Focus:
 
-NOTE ON "Phantom Loader": It's gonna take some time :D its not that easy to do it LOL but will do it.
+Dynamic Target Acquisition: Automated parsing of the /proc directory via raw syscalls (getdents64, openat) to locate sandboxed processes without relying on libc.
+
+ROP-Driven Subversion (Return-Oriented Programming): Shifting away from simple RX/RW allocations (which trigger MDWE/EDR heuristics). The goal is to build dynamic execution chains using the target's own executable memory segments (Living off the Land in memory).
+
+ASLR Defeat Mechanisms: Researching dynamic base-address calculation and gadget discovery methods to ensure the C2 payload survives memory randomization across different OS versions.
+
+Execution Hijacking: Seamlessly hijacking the Instruction Pointer (RIP) via ptrace to execute the ROP chain within a legitimate, highly-privileged system context.
+
+OpSec Advantage: Zero disk footprint, absolute bypass of execve based EDR telemetry, and utilizing heavily sandboxed services as bulletproof vests.
+
+⚠️ NOTE ON "Phantom Loader": Bypassing modern OS memory mitigations solely via raw x64 Assembly is a massive R&D undertaking. Dynamic ROP chains and ASLR evasion require complex memory math and architecture-specific adaptations. It's going to take some serious time, but we are building a beast. Stay tuned.
 
 [CANCELLED] Interactive TTY: Improving shell interaction to support full TTY features. >
 
