@@ -7,7 +7,7 @@
 ![Protocol](https://img.shields.io/badge/Protocol-ICMP-blue.svg)
 ![OS](https://img.shields.io/badge/OS-Linux-orange.svg)
 
-**Ghost-C2 is a fileless, server-side implant written in pure x64 Assembly. It leverages raw ICMP sockets for stealthy command and control, acting as a passive, stateless listener that only responds to a specific Magic Sequence.
+**Ghost-C2 is a fileless, server-side implant deployed via a handcrafted, pure x64 Assembly loader. It leverages raw ICMP sockets for stealthy command and control, acting as a passive, stateless listener that only responds to a specific Magic Sequence.**
 
 ## Star vs. Clone
 I see you're interested in the code! If you're one of the many people cloning this repo, consider dropping a Star as well. It helps the project stay visible and reach more low-level enthusiasts
