@@ -84,6 +84,61 @@ Asymmetric Signature-less Trigger: The C2 architecture eliminates all static sig
 
 ---
 
+## 🚀 The "Phantom Loader" Update (v3.5) - In-Memory Evasion
+With the v3.5 release, Ghost-C2 transitions from a standard executable implant to a highly evasive, 100% Position Independent Code (PIC) memory resident threat. Modern Linux kernels employ ruthless mitigations like Memory-Deny-Write-Execute (MDWE), NX, and strict ASLR. Ghost-C2 defeats these armors by executing entirely within the memory space of legitimate, unconfined root services.
+
+## 🛡️ Technical Deep Dive: The Injection Architecture
+This update introduces a custom, Libc-Free Reflective Code Injection loader written in pure x64 Assembly. It operates as a complex state machine directly interfacing with the Linux kernel to hijack running processes.
+
+Dynamic Target Acquisition (/proc Parsing): The loader autonomously parses the Linux /proc virtual filesystem using raw sys_getdents64 and sys_open syscalls. It scans directory entries (linux_dirent64) at the hardware alignment level to dynamically locate the PID of a hardcoded target service (e.g., cron, VBoxService). This eliminates the need for external arguments and leaves no command-line (cmdline) artifacts.
+
+Ptrace State Machine Orchestration: The injection relies on sys_ptrace (Syscall 101) to manipulate the target. The loader correctly handles asynchronous signal delivery by implementing a strict, blocking sys_wait4 loop, mathematically verifying the WIFSTOPPED (0x7F) status at the bitwise level before attempting any memory reads/writes.
+
+Syscall Proxying & RIP Manipulation: Instead of blindly injecting code, the loader forces the target process to allocate memory for itself. It uses PTRACE_PEEKTEXT to backup the current instruction, injects a syscall opcode (0x050f), and modifies the target's registers (PTRACE_SETREGS) to execute a remote sys_mmap call directly from the victim's context.
+
+W^X (Write XOR Execute) Evasion: To bypass modern eBPF sensors and Memory Scanners looking for anomalous RWX (Read-Write-Execute) memory regions, the loader utilizes a two-stage allocation strategy:
+
+Memory is initially mapped as Write-Only (PROT_READ | PROT_WRITE).
+
+The PIC payload is injected via PTRACE_POKEDATA.
+
+A remote sys_mprotect syscall is triggered to strip write permissions and grant execution rights (PROT_READ | PROT_EXEC), ensuring the memory page appears legitimate to heuristics.
+
+Safe Stack Anchoring (Buffer Overlap Prevention): The injected shellcode features a meticulously crafted memory map. By anchoring the dynamically building buffers (like the execve argv array and the ICMP headers) to safe RBP offsets (e.g., [rbp + 0x100]), and pushing the volatile command output buffer far down the stack ([rbp + 0x1000]), it mathematically guarantees that massive exfiltrations (like reading /etc/passwd) will never corrupt the implant's own operational variables or packet headers.
+
+⚠️ Known Limitations (AppArmor & SELinux): Currently, it is not possible to infiltrate services that are strictly confined under AppArmor or SELinux profiles. The primary reason is that these Mandatory Access Control (MAC) systems actively block critical system calls like mprotect and prevent the necessary memory manipulation required for this injection technique. A solution to bypass these specific restrictions is planned for the 4.xv update, though it's worth noting that developing this bypass will take a very long time :D
+
+## 🎯 Operational Viability & Target Selection
+The Phantom Loader is designed to target "Unconfined" root processes. While services like tcpdump or systemd are heavily guarded by AppArmor or SELinux (enforce mode), standard background daemons like cron or VBoxService often lack strict security profiles.
+
+OpSec Advantage: By hijacking a service that naturally exhibits network behavior, Ghost-C2's raw ICMP sockets blend perfectly into the system's baseline noise, bypassing Endpoint Detection and Response (EDR) anomaly alerts.
+
+## 🛠️ Compilation & Usage (v3.5)
+The repository is now structured into modular components. You can still compile the sniff.asm as a standalone binary, but the real power lies in the Phantom_Loader.
+
+### 1. Build the PIC Shellcode (The Payload):
+First, compile the raw, position-independent agent.
+
+```bash
+cd Phantom_Loader
+nasm -f bin sniff_pic.asm -o shellcode.bin
+```
+(Note: The pre-compiled hex payload is already embedded in loader.asm. You only need this step if you modify the agent's source code).
+
+### 2. Build the Phantom Loader (The Injector):
+
+```bash
+nasm -f elf64 loader.asm -o loader.o && ld loader.o -o loader
+```
+
+### 3. Execution (The Victim):
+Ensure the target service (e.g., cron) is running, then execute the loader. It will inject the payload and immediately exit, leaving the ghost running inside the host.
+
+(💡 Note: The target service name is hardcoded as "cron" inside loader.asm. Check the comments within that file for instructions on how to change it.)
+
+```bash
+sudo ./loader
+```
 ## 🗺 Roadmap & Future Enhancements
 
 ## 🚀 Upcoming in v4.x: Project "Phantom Loader" (Advanced In-Memory Evasion)
