@@ -212,10 +212,10 @@ lrwxrwxrwx 1 root root 0 Mar 12 19:44 /proc/3887/exe -> /home/user/Downloads/ICM
 ## 📖 Deep Dive & Technical Analysis
 
 For a detailed breakdown of the Assembly code, syscall mechanics, and the "Fileless" approach, check out the technical analysis on my blog:
-## 👉 NetaCoding - https://netacoding.web.app/posts/icmp-ghost/
+## 👉 NetaCoding - https://netacoding.com/posts/icmp-ghost/
 ## 🤝 Connect with Me
 GitHub: https://github.com/JM00NJ
-Blog: https://netacoding.web.app/
+Blog: https://netacoding.com/
 ## ⚠️ Legal Disclaimer
 This project is created for educational purposes and security research only. Unauthorized access to computer systems is illegal. The author is not responsible for any misuse of this tool. Operating this tool on networks you do not own is strictly prohibited.
 
