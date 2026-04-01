@@ -231,6 +231,24 @@ sudo ./client
 
 > **Tip:** Name the binary at least 15 characters (e.g., `systemd-resolved`) to provide enough stack buffer for clean `argv[0]` overwrite without environment variable bleed.
 
+## Verification
+
+After deployment, the agent disappears from standard process listings:
+
+```bash
+$ ps aux | grep systemd-resolved
+root  3887  0.0  0.0  192  16 ?  Ss  19:42  0:00 systemd-resolved
+```
+
+The only way to identify the true binary is through `/proc`:
+
+```bash
+$ sudo ls -la /proc/3887/exe
+lrwxrwxrwx 1 root root 0 ... /proc/3887/exe -> /path/to/systemd-resolved
+```
+
+---
+
 ### Phantom Loader (v3.5)
 
 The PIC shellcode is pre-compiled and already embedded in `loader.asm`. Only rebuild it if you modify the agent source:
@@ -248,24 +266,6 @@ sudo ./loader
 ```
 
 The target process name is hardcoded in `loader.asm`. See inline comments to change it.
-
----
-
-## Verification
-
-After deployment, the agent disappears from standard process listings:
-
-```bash
-$ ps aux | grep systemd-resolved
-root  3887  0.0  0.0  192  16 ?  Ss  19:42  0:00 systemd-resolved
-```
-
-The only way to identify the true binary is through `/proc`:
-
-```bash
-$ sudo ls -la /proc/3887/exe
-lrwxrwxrwx 1 root root 0 ... /proc/3887/exe -> /path/to/systemd-resolved
-```
 
 ---
 
