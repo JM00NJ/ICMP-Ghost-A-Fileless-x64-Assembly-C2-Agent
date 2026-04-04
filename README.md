@@ -334,6 +334,25 @@ Ghost-C2 is a hyper-stealth command execution and exfiltration implant. Interact
 
 ---
 
+## ⚖️ Licensing & Usage (Dual License)
+
+Ghost-C2 is distributed under a **Dual Licensing** model to support both the open-source security community and enterprise operational needs.
+
+### 1. Open Source License (MIT)
+Designed for security researchers, students, and non-commercial educational use.
+* ✔️ Free to use for research and learning.
+* ❌ NO WARRANTY. NO SUPPORT.
+* ❌ NOT for integration into commercial products or enterprise Red Team infrastructure without authorization.
+
+### 2. Commercial Enterprise License
+Designed for cybersecurity vendors, enterprise Red Teams, and commercial penetration testing units requiring legal compliance and private modifications.
+* ✔️ Use in commercial engagements and enterprise infrastructure.
+* ✔️ Permission to make closed-source modifications.
+* ✔️ Priority email support for deployment, bug fixes, and troubleshooting (Ghost-C2 specific).
+* ✔️ Direct communication channel for custom feature requests.
+
+**For Commercial Licensing Inquiries:** Please contact me at: [leveldotexe@gmail.com]
+
 ## Resources
 
 - **Blog / Technical Writeup:** [netacoding.com/posts/icmp-ghost](https://netacoding.com/posts/icmp-ghost)
