@@ -261,6 +261,9 @@ nasm -f bin sniff_pic.asm -o shellcode.bin
 # Build the loader
 nasm -f elf64 loader.asm -o loader.o && ld loader.o -o loader
 
+# (Optional) Binary Optimization & Anti-Forensics
+strip --strip-all loader
+
 # Execute (target process must be running)
 sudo strace ./loader
 ```
