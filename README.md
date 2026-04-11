@@ -382,6 +382,14 @@ Ghost-C2 is a hyper-stealth command execution and exfiltration implant. Interact
 
 ---
 
+## 💖 Support the Project
+
+Ghost-C2 is built with passion, sweat, and pure x64 Assembly. If this project helped you understand low-level evasion, protocol mimicry, or just made your red teaming operations smoother, consider supporting the development!
+
+Your support helps me buy more coffee and spend more sleepless nights fighting `SIGSEGV` errors to bring you cleaner, stealthier implants.
+
+[👉 Become a Sponsor on GitHub](https://github.com/sponsors/JM00NJ)
+
 ## Legal Disclaimer
 
 This project is developed for **educational purposes and authorized penetration testing only**. The author is not responsible for any misuse. Operating this tool against systems you do not own or have explicit written permission to test is illegal.
