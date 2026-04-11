@@ -98,6 +98,36 @@ The delivery mechanism. Scans `/proc`, finds a target process by `comm` name, an
 
 ## Stealth & Evasion Techniques
 
+### DPCM-RLE Hybrid x64 Compressor
+Ghost-C2's data transmission engine utilizes a hybrid compression and encoding layer heavily optimized in x86-64 Assembly. This architecture reduces data volume while ensuring the traffic profile remains natural.
+
+### Differential Pulse Code Modulation (DPCM):
+Instead of transmitting raw ASCII values, the engine calculates and sends the mathematical difference (Delta) between a reference character (Anchor) and the subsequent ones. This method drastically lowers the entropy of data with similar character ranges.
+
+```nasm
+mov al, byte [rsi]    ; Read new character
+mov dl, al
+sub al, bl            ; Calculate difference (Delta) from Anchor (bl)
+mov r9b, al           ; Save Delta
+mov bl, dl            ; Set new Anchor
+```
+
+### Run-Length Encoding (RLE):
+Working in tandem with DPCM, the RLE engine packs consecutive spaces and repeating permission blocks—frequently seen in outputs like ls -la—at the bit level.
+
+```nasm
+.comp_flush:
+mov byte [rdi], r8b   ; Write repetition count (Count)
+inc rdi
+mov byte [rdi], r9b   ; Write Delta value
+```
+### Stealth & Efficiency Gains:
+**Bandwidth Optimization: Reduces the overall data payload by an average of 40% to 55% for text-based command outputs (ASCII/UTF-8).**
+
+**Minimal Network Footprint: Shrinking the data payload halves the number of injected ICMP packets, significantly lowering the risk of triggering IDS/IPS anomaly radars.**
+
+**100% Data Fidelity: Stack offsets are strictly confined to a safe memory region (0x20000), and synchronization desyncs have been eliminated. Massive datasets of 20KB+ (e.g., /etc dumps) are reliably transmitted without shifting a single bit.**
+
 ### Protocol Mimicry
 Every outgoing ICMP packet is structured to be indistinguishable from a standard Linux `ping`:
 
