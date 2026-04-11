@@ -377,9 +377,9 @@ Ghost-C2 is a hyper-stealth command execution and exfiltration implant. Interact
 
 ## Resources
 
-- **Blog / Technical Writeup:** [netacoding.com/posts/icmp-ghost](https://netacoding.com/posts/icmp-ghost)
+- **Blog / Technical Writeup:** [netacoding.com/posts/icmp-ghost](https://netacoding.com/posts/icmp-ghost) 
 - **Author:** [github.com/JM00NJ](https://github.com/JM00NJ)
-
+- **Related Resource:** [netacoding.com/posts/compressdpcm-rle](https://netacoding.com/posts/compressdpcm-rle)
 ---
 
 ## 💖 Support the Project
