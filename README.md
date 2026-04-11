@@ -126,7 +126,7 @@ mov byte [rdi], r9b   ; Write Delta value
 
 **Minimal Network Footprint: Shrinking the data payload halves the number of injected ICMP packets, significantly lowering the risk of triggering IDS/IPS anomaly radars.**
 
-**100% Data Fidelity: Stack offsets are strictly confined to a safe memory region (0x20000), and synchronization desyncs have been eliminated. Massive datasets of 20KB+ (e.g., /etc dumps) are reliably transmitted without shifting a single bit.**
+**100% Data Fidelity: Stack offsets are strictly confined to a safe memory region (0x100000), and synchronization desyncs have been eliminated. Massive datasets of 20KB+ (e.g., /etc dumps) are reliably transmitted without shifting a single bit.**
 
 ### Protocol Mimicry
 Every outgoing ICMP packet is structured to be indistinguishable from a standard Linux `ping`:
