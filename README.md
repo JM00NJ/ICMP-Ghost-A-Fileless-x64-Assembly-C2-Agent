@@ -45,20 +45,20 @@ This project was built to explore how far user-space stealth can go without touc
 │                                                             │
 │   ┌──────────────┐                                          │
 │   │  client.asm  │  ← Terminal UI: prompt for IP + command  │
-│   │  (Operator   │     Encrypts payload with Rolling XOR    │
-│   │   Console)   │     Sends ICMP Echo Request (Type 8)     │
-│   └──────┬───────┘     Auth key: ID + SEQ = 45,000          │
+│   │  (Operator   │    Encrypts payload with Rolling XOR     │
+│   │   Console)   │    Sends ICMP Echo Request (Type 8)      │
+│   └──────┬───────┘    Auth key: ID + SEQ = 45,000           │
 │          │                                                  │
 └──────────┼──────────────────────────────────────────────────┘
            │  Raw ICMP (port-less, stateless)
            │
 ┌──────────┼──────────────────────────────────────────────────┐
-│          │           TARGET MACHINE                         │
+│          │             TARGET MACHINE                       │
 │          ▼                                                  │
 │   ┌──────────────┐     ┌─────────────────────────────────┐  │
 │   │  loader.asm  │────▶│         sniff.asm (PIC)         │  │
-│   │  (Phantom    │     │         Lives in RAM only        │  │
-│   │   Loader)    │     │         inside host process      │  │
+│   │  (Phantom    │     │         Lives in RAM only       │  │
+│   │   Loader)    │     │         inside host process     │  │
 │   └──────────────┘     └────────────────┬────────────────┘  │
 │                                         │                   │
 │   1. Scans /proc for target PID         │ Receives ICMP Req │
@@ -66,15 +66,18 @@ This project was built to explore how far user-space stealth can go without touc
 │   3. Force remote mmap (RW)             │ Decrypts command  │
 │   4. Inject PIC shellcode               │ fork+execve       │
 │   5. mprotect → RX                      │ memfd_create      │
-│   6. Redirect RIP → shellcode           │ Sends ICMP Reply  │
-│   7. ptrace DETACH → exits              │ (Type 0, key:     │
-│                                         │  ID + SEQ = 55k)  │
+│   6. Redirect RIP → shellcode           │ Compress(DPCM-RLE)│
+│   7. ptrace DETACH → exits              │ Encrypt & Frag.   │
+│                                         │ Sends ICMP Reply  │
+│                                         │ (Auth: 55,000)    │
 └─────────────────────────────────────────┼───────────────────┘
-                                          │  Raw ICMP
+                                          │  Raw ICMP + Jitter
                                           ▼
                                    [ client.asm ]
-                                   Receives chunks
-                                   Decrypts + prints
+                                   Receives & Validates
+                                   Decrypts Payload
+                                   Decompresses (Hybrid)
+                                   Reassembles & Prints
 ```
 
 ---
@@ -127,6 +130,9 @@ mov byte [rdi], r9b   ; Write Delta value
 **Minimal Network Footprint: Shrinking the data payload halves the number of injected ICMP packets, significantly lowering the risk of triggering IDS/IPS anomaly radars.**
 
 **100% Data Fidelity: Stack offsets are strictly confined to a safe memory region (0x100000), and synchronization desyncs have been eliminated. Massive datasets of 20KB+ (e.g., /etc dumps) are reliably transmitted without shifting a single bit.**
+
+**dpcm-rle-hybrid-x64-compressor:**
+https://github.com/JM00NJ/Vesqer-Baremetal-Compressor-DPCM-RLE-Hybrid-Engine
 
 ### Protocol Mimicry
 Every outgoing ICMP packet is structured to be indistinguishable from a standard Linux `ping`:
@@ -279,7 +285,7 @@ lrwxrwxrwx 1 root root 0 ... /proc/3887/exe -> /path/to/systemd-resolved
 
 ---
 
-### Phantom Loader (v3.5)
+### Phantom Loader (v3.6)
 
 The PIC shellcode is pre-compiled and already embedded in `loader.asm`. Only rebuild it if you modify the agent source:
 
