@@ -20,7 +20,7 @@
 ![Language](https://img.shields.io/badge/Language-Pure%20Assembly-green.svg)
 ![Protocol](https://img.shields.io/badge/Protocol-ICMP-blue.svg)
 ![OS](https://img.shields.io/badge/OS-Linux-orange.svg)
-![Version](https://img.shields.io/badge/Version-3.5-purple.svg)
+![Version](https://img.shields.io/badge/Version-3.6-purple.svg)
 ![Suricata](https://img.shields.io/badge/Suricata%20v8.0.3-Bypassed-brightgreen)
 
 </div>
