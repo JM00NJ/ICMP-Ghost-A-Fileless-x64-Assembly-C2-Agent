@@ -395,6 +395,14 @@ Your support helps me buy more coffee and spend more sleepless nights fighting `
 
 [👉 Become a Sponsor on GitHub](https://github.com/sponsors/JM00NJ)
 
-## Legal Disclaimer
+---
 
-This project is developed for **educational purposes and authorized penetration testing only**. The author is not responsible for any misuse. Operating this tool against systems you do not own or have explicit written permission to test is illegal.
+### ⚖️ Disclaimer & License (AGPL-3.0)
+
+Ghost-C2 is developed strictly for **educational purposes, reverse engineering, and authorized cybersecurity research**. 
+
+As of version 3.6.1 and onwards, this project is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**. Any entity interacting with or modifying this software over a network must disclose their complete source code as mandated by the license. Commercial exploitation or integration into proprietary/closed-source platforms is strictly prohibited. 
+
+**Copyright (c) 2026 JM00NJ (commSync). All Rights Reserved.**
+
+The author is not responsible for any illegal use or damage caused by this tool. Use it at your own risk.
