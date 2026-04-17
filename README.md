@@ -35,7 +35,7 @@ The C2 channel runs over **raw ICMP sockets**, hiding inside standard diagnostic
 
 This project was built to explore how far user-space stealth can go without touching the kernel.
 
-![Architecture](https://github.com/user-attachments/assets/28baac90-986d-4777-a11b-862b6dbfd253)
+![Architecture](https://github.com/user-attachments/assets/36dde87a-0790-4721-9ab6-f34fbfd75bc4)
 
 ---
 
