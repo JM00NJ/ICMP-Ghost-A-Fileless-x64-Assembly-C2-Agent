@@ -308,9 +308,10 @@ strip --strip-all loader
 sudo strace ./loader
 ```
 
-💡 Evasion Note (Syscall Noise Masking via LotL): Execution is intentionally wrapped with strace. This leverages a Living off the Land (LotL) technique to generate massive amounts of legitimate debugging noise. By flooding kernel-level eBPF sensors (like Falco) with standard PTRACE_ATTACH logs, the actual malicious injection is masked through "Alert Flooding". This effectively buries the single injection anomaly within a sea of standard debug operations, often causing defense mechanisms and analysts to dismiss the event as a false-positive.
+**💡 Evasion Note (Syscall Noise Masking via LotL):**
+Execution is intentionally wrapped with strace. This leverages a Living off the Land (LotL) technique to generate massive amounts of legitimate debugging noise. By flooding kernel-level eBPF sensors (like Falco) with standard PTRACE_ATTACH logs, the actual malicious injection is masked through "Alert Flooding". This effectively buries the single injection anomaly within a sea of standard debug operations, often causing defense mechanisms and analysts to dismiss the event as a false-positive.
 
-The target process name is hardcoded in `loader.asm`. See inline comments to change it.
+**The target process name is hardcoded in `loader.asm`. See inline comments to change it.**
 
 ---
 
