@@ -141,11 +141,13 @@ Modify the following values to match your Master Server:
 - **Decoy Domain:** Change `fake_domain` (e.g., `ghost.com`) to match the authoritative domain configured on your Master.
 
 ### Step 2: Assemble to Raw Shellcode
+
 ```bash
 nasm -f bin sniff.asm -o shellcode.bin
 ```
 
 ### Step 3: Format the Shellcode
+
 ```bash
 python3 -c "data = open('shellcode.bin', 'rb').read(); lines = ['\tdb ' + ', '.join(f'0x{b:02x}' for b in data[i:i+12]) for i in range(0, len(data), 12)]; open('c2_payload.txt', 'w').write('\n'.join(lines))"
 ```
@@ -162,6 +164,7 @@ python3 -c "data = open('shellcode.bin', 'rb').read(); lines = ['\tdb ' + ', '.j
 4. *(Optional: Change the target injection process by modifying `target db "cron", 10`).*
 
 ### Step 6: Compile the Final Loader
+
 ```bash
 nasm -f elf64 loader.asm -o loader.o
 ld loader.o -o loader
@@ -188,10 +191,12 @@ Port Alignment: Change dw 0xB414 to match the UDP port the Agent is listening on
 
 ### Step 3: Build the Console
 Once configured, assemble and link the Master:
+
 ```bash
 nasm -f elf64 client.asm -o client.o
 ld client.o -o client
 ```
+
 ### 💡 OPSEC Tip for Users
 Protip: Always keep a "Profile Sheet" for your operation. If you change the port to 0x3500 (Port 53) in sniff.asm, you MUST update both master_bind_addr and target_addr in client.asm before the operation begins.
 
@@ -204,10 +209,11 @@ The Logic: ICMP is Ghost-C2's "Golden Channel"—it is stateless, passive, and a
 
 The Risk: DNS mode relies on dynamic UDP port synchronization. If the Master Console is closed while in DNS mode, the Agent remains "trapped" in a UDP listening state. Re-establishing connection would require knowing the Agent's specific ephemeral port, which is lost upon Master restart.
 
-Rule of Thumb
+## Rule of Thumb
 1. !I (Switch to ICMP)
 2. Verify Command Prompt
 3. Ctrl+C (Exit Master)
+
 ---
 
 ## Empirical Results
