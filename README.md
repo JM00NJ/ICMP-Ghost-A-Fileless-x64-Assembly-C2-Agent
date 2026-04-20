@@ -1,5 +1,3 @@
-<div align="center">
-
 ```
  ________  ___  ___  ________  ________  _________       ________  ________   
 |\   ____\|\  \|\  \|\   __  \|\   ____\|\___   ___\    |\   ____\|\_____  \  
@@ -167,6 +165,9 @@ python3 -c "data = open('shellcode.bin', 'rb').read(); lines = ['\tdb ' + ', '.j
 
 ```bash
 nasm -f elf64 loader.asm -o loader.o
+```
+
+```bash
 ld loader.o -o loader
 ```
 
@@ -194,6 +195,9 @@ Once configured, assemble and link the Master:
 
 ```bash
 nasm -f elf64 client.asm -o client.o
+```
+
+```bash
 ld client.o -o client
 ```
 
