@@ -171,17 +171,43 @@ Execute on the target machine with root privileges (`sudo ./loader`). The agent 
 
 ---
 
-## Build & Usage (Operator Console)
+## Configuring the Operator Console (client.asm)
+Before compiling the Master Console, you must ensure its listener and target profiles align with your Agent's configuration. Open client.asm and navigate to the section .data area.
 
-Build the operator client (`client.asm`):
+### Step 1: Configure Listener Port
+Locate master_bind_addr. This is where the Master listens for incoming DNS beacons.
 
+UDP Port: Change dw 0xB414 to match the port your Agent is sending to.
+
+> **Note:** This must be in Network Byte Order. For Port 53, use 0x3500.
+
+### Step 2: Configure Pivot/Reconnect Port
+Locate target_addr. This port is used when you perform a DNS Pivot (!D) or use the Reconnect module.
+
+Port Alignment: Change dw 0xB414 to match the UDP port the Agent is listening on. If these ports do not match, the (Deadlock) will occur as the Master will be shouting into the wrong void.
+
+### Step 3: Build the Console
+Once configured, assemble and link the Master:
 ```bash
-nasm -f elf64 client.asm -o client.o && ld client.o -o client
-sudo ./client
+nasm -f elf64 client.asm -o client.o
+ld client.o -o client
 ```
+### 💡 OPSEC Tip for Users
+Protip: Always keep a "Profile Sheet" for your operation. If you change the port to 0x3500 (Port 53) in sniff.asm, you MUST update both master_bind_addr and target_addr in client.asm before the operation begins.
 
 > **Note:** The Operator Console requires root privileges to bind raw sockets and UDP port 53.
 
+## ⚠️ CRITICAL: Operational State Synchronization
+To ensure persistent access and prevent session loss, always pivot the Agent back to ICMP Mode (!I) before terminating your Master Console session.
+
+The Logic: ICMP is Ghost-C2's "Golden Channel"—it is stateless, passive, and always reachable via the Target IP.
+
+The Risk: DNS mode relies on dynamic UDP port synchronization. If the Master Console is closed while in DNS mode, the Agent remains "trapped" in a UDP listening state. Re-establishing connection would require knowing the Agent's specific ephemeral port, which is lost upon Master restart.
+
+Rule of Thumb
+1. !I (Switch to ICMP)
+2. Verify Command Prompt
+3. Ctrl+C (Exit Master)
 ---
 
 ## Empirical Results
