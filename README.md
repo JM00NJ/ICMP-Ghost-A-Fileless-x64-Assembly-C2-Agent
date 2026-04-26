@@ -34,6 +34,9 @@ This project was built to explore how far user-space stealth and network state s
 
 ## Architecture
 
+<img width="2814" height="1536" alt="ghost-c2-architecture" src="https://github.com/user-attachments/assets/4b2797f1-91b3-47fc-a6ff-e93dbf17862d" />
+
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      OPERATOR MACHINE                       │
