@@ -19,10 +19,17 @@
 ![OS](https://img.shields.io/badge/OS-Linux-orange.svg)
 ![Version](https://img.shields.io/badge/Version-3.6.2-purple.svg)
 ![Suricata](https://img.shields.io/badge/Suricata%20v8.0.3-Bypassed-brightgreen)
+![GitHub stars](https://img.shields.io/github/stars/JM00NJ/ICMP-Ghost-A-Fileless-x64-Assembly-C2-Agent?style=social)
+![GitHub license](https://img.shields.io/github/license/JM00NJ/ICMP-Ghost-A-Fileless-x64-Assembly-C2-Agent)
+![GitHub repo size](https://img.shields.io/github/repo-size/JM00NJ/ICMP-Ghost-A-Fileless-x64-Assembly-C2-Agent)
+
 
 # Ghost-C2
 
 ## Overview
+
+** ⭐️ If you find this research useful, please consider giving it a star to support further development.**
+
 
 Ghost-C2 is a command-and-control framework written entirely in pure x64 Linux Assembly with no libc dependencies. Every operation goes through direct syscalls. There are no import tables, no dynamic linker artifacts, and no disk writes.
 
