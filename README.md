@@ -28,7 +28,8 @@
 
 ## Overview
 
-** ⭐️ If you find this research useful, please consider giving it a star to support further development.**
+⭐️
+**If you find this research useful, please consider giving it a star to support further development**
 
 
 Ghost-C2 is a command-and-control framework written entirely in pure x64 Linux Assembly with no libc dependencies. Every operation goes through direct syscalls. There are no import tables, no dynamic linker artifacts, and no disk writes.
