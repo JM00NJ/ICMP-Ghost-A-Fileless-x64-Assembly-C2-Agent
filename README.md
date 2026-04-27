@@ -31,6 +31,8 @@
 ⭐️
 **If you find this research useful, please consider giving it a star to support further development**
 
+> **🚨 FULL TECHNICAL RESEARCH & SOURCE CODE:**
+> **This repository is a summary. For the complete architectural breakdown, W^X memory evasion details, and VTable implementation, visit the official project page: [ICMP-Ghost Technical Breakdown](https://netacoding.com/posts/icmp-ghost/)**
 
 Ghost-C2 is a command-and-control framework written entirely in pure x64 Linux Assembly with no libc dependencies. Every operation goes through direct syscalls. There are no import tables, no dynamic linker artifacts, and no disk writes.
 
