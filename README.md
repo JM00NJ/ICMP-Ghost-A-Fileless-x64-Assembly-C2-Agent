@@ -269,13 +269,30 @@ Ghost-C2 interacts directly with the Linux kernel:
 
 ## Roadmap
 
-### v4.0 — DNS RFC Compliance & Asynchronous Beaconing
-- **RFC Headers:** Currently, the DNS tunneling module operates on raw Hex/Base32 over UDP, which triggers "Malformed Packet" warnings in Wireshark. v4.0 will wrap payloads in fully compliant RFC 1035 headers (Transaction IDs, QTYPE, etc.) to bypass strict IDS/IPS protocol anomaly detection.
-- **Asynchronous Jitter / Nonce:** To successfully route payloads through Public ISP caches to the C2 Authoritative Name Server, a unique randomized nonce/jitter will be prepended to every subdomain query to prevent DNS caching drops.
+### ✅ Completed in v3.6.3
+- RFC 1035 compliant DNS headers (Transaction ID, QTYPE A, QDCOUNT)
+- Base32 RFC 4648 encoding (replaces raw hex)
+- Per-packet domain rotation (5-entry CDN pool)
+- Wireshark "Malformed Packet" warnings eliminated
+
+### v3.6.4 — DNS Response Simulation
+- Master and agent will return synthetic A record responses
+  (QR=1, RCODE=0, ANCOUNT=1) after every query
+- Eliminates unanswered query anomaly detected by
+  ML-based NDR (Darktrace, ExtraHop)
+- Remaining gap between rule-based bypass and full ML evasion
+
+### v4.0 — Authoritative DNS Routing & Async Beaconing
+- Route payloads through public ISP DNS caches to a
+  C2 authoritative name server (real DNS infrastructure)
+- Randomized nonce prepended to every subdomain query
+  to prevent DNS caching drops
+- Full async jitter with variable beacon intervals
 
 ### v4.x — MAC Bypass Research
-Research into bypassing AppArmor and SELinux confined processes using ROP-based execution (Living off the Land in memory) and dynamic ASLR defeat to eliminate `mprotect` dependencies.
-
+- AppArmor / SELinux confined process bypass via
+  ROP-based execution (Living off the Land)
+- Dynamic ASLR defeat to eliminate `mprotect` dependencies
 ---
 
 ## Why No Interactive TTY?
