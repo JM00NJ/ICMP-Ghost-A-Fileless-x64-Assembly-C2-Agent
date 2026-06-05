@@ -17,7 +17,7 @@
 ![Protocol](https://img.shields.io/badge/Protocol-ICMP-blue.svg)
 ![Protocol](https://img.shields.io/badge/Protocol-DNS-blue.svg)
 ![OS](https://img.shields.io/badge/OS-Linux-orange.svg)
-![Version](https://img.shields.io/badge/Version-3.6.2-purple.svg)
+![Version](https://img.shields.io/badge/Version-3.6.3-purple.svg)
 ![Suricata](https://img.shields.io/badge/Suricata%20v8.0.3-Bypassed-brightgreen)
 ![GitHub stars](https://img.shields.io/github/stars/JM00NJ/ICMP-Ghost-A-Fileless-x64-Assembly-C2-Agent?style=social)
 ![GitHub license](https://img.shields.io/github/license/JM00NJ/ICMP-Ghost-A-Fileless-x64-Assembly-C2-Agent)
@@ -149,8 +149,7 @@ Open `sniff.asm` and scroll to the very bottom of the `.text` segment. *(Note: B
 Modify the following values to match your Master Server:
 - **IP Address:** Change `db 127, 0, 0, 1` to your Master's IP.
 - **UDP Port:** Change `dw 0xB414` (Port 5300) to your desired port in Network Byte Order (e.g., `0x3500` for Port 53).
-- **Decoy Domain:** Change `fake_domain` (e.g., `ghost.com`) to match the authoritative domain configured on your Master.
-
+  
 ### Step 2: Assemble to Raw Shellcode
 
 ```bash
